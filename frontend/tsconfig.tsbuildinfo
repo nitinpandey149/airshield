@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/AlertCard.tsx","./src/components/AqiScale.tsx","./src/components/ForecastChart.tsx","./src/components/LocationSelect.tsx","./src/components/ModelCard.tsx","./src/components/ProvenancePanel.tsx","./src/lib/api.ts","./src/lib/theme.ts","./src/lib/types.ts"],"version":"5.9.3"}

@@ -36,6 +36,7 @@ ml/artifacts/*.tar.gz
 node_modules/
 frontend/dist/
 frontend/.vite/
+*.tsbuildinfo
 *.local
 npm-debug.log*
 
