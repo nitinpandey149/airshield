@@ -86,22 +86,24 @@ def _not_found(exc: Exception) -> JSONResponse:
 # Serving the built dashboard from the API is opt-in, and Docker enables it.
 # Keeping it off by default means a local dev server keeps a plain API at "/"
 # (the frontend runs separately on :5173), while the image is a single origin.
-if settings.serve_frontend:
-    FRONTEND_DIST = Path(
-        os.environ.get("AIRSHIELD_FRONTEND_DIST") or (REPO_ROOT / "frontend" / "dist")
-    )
+FRONTEND_DIST = Path(
+    os.environ.get("AIRSHIELD_FRONTEND_DIST") or (REPO_ROOT / "frontend" / "dist")
+)
+_dashboard_mounted = settings.serve_frontend and FRONTEND_DIST.is_dir()
 
-    if FRONTEND_DIST.is_dir():
-        # Mounted last so every /api/* route registered above wins.
-        app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="dashboard")
+if _dashboard_mounted:
+    # Mounted last so every /api/* route registered above wins.
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="dashboard")
 
-        @app.exception_handler(404)
-        async def spa_fallback(request: Request, exc: Exception):  # pragma: no cover
-            """Serve index.html for client-side routes; keep API 404s as JSON."""
-            if request.url.path.startswith("/api"):
-                return _not_found(exc)
-            index = FRONTEND_DIST / "index.html"
-            return FileResponse(index) if index.is_file() else _not_found(exc)
+    @app.exception_handler(404)
+    async def spa_fallback(request: Request, exc: Exception):  # pragma: no cover
+        """Serve index.html for client-side routes; keep API 404s as JSON."""
+        if request.url.path.startswith("/api"):
+            return _not_found(exc)
+        index = FRONTEND_DIST / "index.html"
+        return FileResponse(index) if index.is_file() else _not_found(exc)
 
 else:
+    # No dashboard to serve: "/" stays a JSON banner. This also covers the case
+    # where the flag is on but the frontend has not been built.
     app.get("/", tags=["meta"])(service_banner)

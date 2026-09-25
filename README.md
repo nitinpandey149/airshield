@@ -114,7 +114,7 @@ airshield/
 │   │   └── services/
 │   │       ├── forecast_service.py   Orchestrates fetch -> features -> predict -> alert
 │   │       └── sagemaker_client.py   Real SageMaker runtime invocation
-│   └── tests/                23 tests, including the honesty suite
+│   └── tests/                29 tests, including the honesty suite
 │
 ├── frontend/                 React + TypeScript + Vite + Tailwind + Recharts
 │   └── src/
@@ -304,9 +304,9 @@ script exits non-zero with the real error.
 ## Testing
 
 ```bash
-make test           # all Python tests (92)
+make test           # all Python tests (98)
 make test-core      # core library (69)
-make test-backend   # API + honesty suite (23)
+make test-backend   # API, honesty, static-serving suite (29)
 make test-frontend  # TypeScript type check
 make check          # everything
 ```
