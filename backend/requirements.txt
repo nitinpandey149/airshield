@@ -1,0 +1,28 @@
+# AirShield backend dependencies.
+#
+# The shared domain logic lives in ../core and is installed via
+# `pip install -e ./core` (see Makefile).
+
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+pydantic-settings>=2.6
+httpx>=0.27
+
+# ML runtime for local inference (mirrors ml/requirements.txt)
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+xgboost>=2.1
+joblib>=1.4
+
+# Amazon SageMaker AI + AWS
+boto3>=1.35
+sagemaker>=2.220,<3
+
+# Tests
+pytest>=8.3
+pytest-asyncio>=0.24
+
+# Static file serving for the built frontend in Docker
+aiofiles>=24.1

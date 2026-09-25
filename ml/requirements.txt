@@ -1,0 +1,32 @@
+# AirShield ML pipeline dependencies.
+#
+# Includes the SageMaker Python SDK used to run real training jobs and deploy
+# real endpoints (the only AWS AI/ML service in this project).
+#
+# NOTE: the SDK is pinned below 3.x on purpose. v3 restructured the framework
+# estimator API (sagemaker.xgboost.XGBoost); this project targets the stable v2
+# framework API used by ml/sagemaker/*.py.
+
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.5
+xgboost>=2.1
+joblib>=1.4
+
+# SageMaker: training jobs + endpoint deployment
+sagemaker>=2.220,<3
+boto3>=1.35
+
+# Data acquisition
+httpx>=0.27
+
+# Configuration
+pydantic>=2.9
+pydantic-settings>=2.6
+
+# The shared domain logic lives in ../core; install it with
+#   pip install -e ./core
+# (the Makefile `setup` target does this)
+
+# Testing
+pytest>=8.3

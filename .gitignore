@@ -1,0 +1,52 @@
+# ---- Secrets / local config -------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.docker.example
+*.pem
+*.key
+credentials
+credentials.csv
+
+# ---- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Model artifacts -------------------------------------------------------
+# Trained model binaries are build outputs. They are produced locally by
+# `make train` (or pulled from SageMaker) and must never be committed.
+ml/artifacts/*.json
+ml/artifacts/*.joblib
+ml/artifacts/*.ubj
+ml/artifacts/*.tar.gz
+!ml/artifacts/.gitkeep
+
+# ---- Node / frontend -------------------------------------------------------
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+npm-debug.log*
+
+# ---- OS / editor -----------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---- Scratch ---------------------------------------------------------------
+.agent_tmp/
+tmp/
+*.log

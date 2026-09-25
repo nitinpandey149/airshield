@@ -1,0 +1,38 @@
+{
+  "description": "Frozen historical window of real hourly air-quality and weather measurements, captured from Open-Meteo for DEMO_MODE.",
+  "source": "Open-Meteo",
+  "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
+  "licence": "Weather and air-quality data by Open-Meteo.com (CC BY 4.0)",
+  "is_synthetic": false,
+  "captured_at": "2026-09-25T08:14:50.508937+00:00",
+  "window": {
+    "start": "2026-06-26",
+    "end": "2026-09-24"
+  },
+  "rows": 13104,
+  "locations": [
+    "beijing",
+    "berlin",
+    "delhi",
+    "los-angeles",
+    "new-york",
+    "sao-paulo"
+  ],
+  "columns": [
+    "time",
+    "location_slug",
+    "location_name",
+    "latitude",
+    "longitude",
+    "pm2_5",
+    "pm10",
+    "nitrogen_dioxide",
+    "ozone",
+    "temperature_2m",
+    "relative_humidity_2m",
+    "wind_speed_10m",
+    "wind_direction_10m",
+    "surface_pressure",
+    "precipitation"
+  ]
+}

@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-ink-900 text-slate-100 antialiased;
+    /* Soft atmospheric gradient to evoke a sky without hurting legibility. */
+    background-image:
+      radial-gradient(900px 500px at 12% -8%, rgba(56, 189, 248, 0.13), transparent 60%),
+      radial-gradient(720px 420px at 88% 0%, rgba(168, 85, 247, 0.11), transparent 62%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white/10 bg-ink-800/70 shadow-lg backdrop-blur;
+  }
+
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-wider text-slate-400;
+  }
+
+  .stat-value {
+    @apply text-2xl font-semibold tabular-nums text-white;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
