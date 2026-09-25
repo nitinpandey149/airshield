@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main, master, airshield-foundation]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-and-backend:
+    name: Core + backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./core
+          pip install -r backend/requirements.txt
+
+      - name: Train from the bundled real dataset
+        run: |
+          python -m airshield_core.train \
+            --out ml/artifacts --rounds 400 \
+            --from-csv ml/data/demo/demo_hourly.csv
+
+      - name: Core tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/core/src
+        run: python -m pytest core/tests -q
+
+      - name: Backend tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}/core/src
+          AIRSHIELD_DATA_MODE: demo
+          AIRSHIELD_INFERENCE_BACKEND: local
+          AIRSHIELD_ARTIFACT_DIR: ml/artifacts
+        run: python -m pytest backend/tests -q
+
+  frontend:
+    name: Frontend type check + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - name: Type check
+        run: npx tsc -b --noEmit
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker image serves API and dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build -t airshield:ci .
+
+      - name: Run the container and verify real behaviour
+        run: |
+          docker run -d --name airshield-ci -p 8000:8000 \
+            -e AIRSHIELD_DATA_MODE=demo airshield:ci
+
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:8000/api/health > /dev/null 2>&1 && break
+            sleep 2
+          done
+
+          echo "--- /api/health ---"
+          curl -fsS http://localhost:8000/api/health
+          echo
+
+          echo "--- /api/forecast/delhi ---"
+          curl -fsS http://localhost:8000/api/forecast/delhi -o /tmp/forecast.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open("/tmp/forecast.json"))
+          assert d["source"]["mode"] == "demo", d["source"]["mode"]
+          assert d["notice"], "demo responses must carry a notice"
+          assert d["forecast"]["predicted_pm25"] > 0
+          assert d["alert"]["headline"]
+          print("predicted", d["forecast"]["predicted_pm25"], "ug/m3 | AQI", d["aqi"]["aqi"])
+          PY
+
+          echo "--- dashboard at / ---"
+          curl -fsS http://localhost:8000/ | grep -q "AirShield"
+
+          echo "--- unknown API path must stay JSON 404 ---"
+          code=$(curl -s -o /tmp/404.txt -w '%{http_code}' http://localhost:8000/api/does-not-exist)
+          test "$code" = "404"
+          grep -q "detail" /tmp/404.txt || { echo "API 404 leaked HTML"; exit 1; }
+
+          docker logs airshield-ci 2>&1 | tail -20
+          docker rm -f airshield-ci

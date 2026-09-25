@@ -13,7 +13,7 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
-        frontend-build test test-core test-backend test-frontend lint clean \
+        frontend-build test test-core test-backend test-frontend clean \
         docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke check
 
 help: ## Show this help
