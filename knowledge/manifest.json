@@ -148,6 +148,36 @@
       "category": "AQI",
       "publication_date": "2018-09-01",
       "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "airnow-particle-pollution-guide",
+      "title": "Air Quality Guide for Particle Pollution",
+      "source": "US EPA AirNow",
+      "url": "https://www.airnow.gov/sites/default/files/2023-03/air-quality-guide-for-particle-pollution_0.pdf",
+      "document_type": "guidance",
+      "category": "outdoor_activity",
+      "publication_date": "2023",
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "airnow-schools-activity-guidance",
+      "title": "Air Quality and Outdoor Activity Guidance for Schools",
+      "source": "US EPA AirNow",
+      "url": "https://www.airnow.gov/sites/default/files/2018-09/air-quality-and-outdoor-activity-guidance-2014.pdf",
+      "document_type": "guidance",
+      "category": "outdoor_activity",
+      "publication_date": "2014",
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "lung-association-air-quality-and-exercise",
+      "title": "Four Things to Know about Air Quality and Exercising Outdoors",
+      "source": "American Lung Association",
+      "url": "https://www.lung.org/blog/four-things-to-know-about-air-quality-and-exercise",
+      "document_type": "guidance",
+      "category": "outdoor_activity",
+      "publication_date": "2025",
+      "licence": "American Lung Association - reproduced for non-commercial research"
     }
   ]
 }
