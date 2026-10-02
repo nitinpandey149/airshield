@@ -325,10 +325,19 @@ Notification pipeline
 | **API Gateway** | Optional front door for the FastAPI service. |
 
 ```bash
-make infra-validate   # aws cloudformation validate-template
+make infra-validate   # real CloudFormation validate-template (needs creds)
 make infra-deploy ENV=dev
-make lambda-package   # build the ingest + spike zips
+make lambda-package   # standalone zips, for manual update-function-code
+make template-sync    # re-embed handlers after editing them
 ```
+
+Deployment is a single command: the template embeds the **tested** Lambda handler
+source directly in its `ZipFile` blocks, so one `create_stack` yields working
+functions rather than placeholder stubs. `infra/deploy_stack.py` drives it through
+boto3, so the AWS CLI is not required, and it prints only values AWS returned.
+`infra/tests/test_template_sync.py` fails if the embedded code ever drifts from
+`infra/lambda/*/handler.py`. With no credentials the script exits non-zero with
+the real reason — it never reports a deployment that did not happen.
 
 ## Amazon SageMaker AI
 

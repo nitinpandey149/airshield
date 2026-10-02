@@ -70,8 +70,10 @@ make test-frontend    # tsc type check
 make check            # everything
 make build-demo-data  # refresh ml/data/demo from Open-Meteo
 make docker-build && make docker-run
-make infra-validate   # aws cloudformation validate-template
-make lambda-package   # build the ingest + spike zips
+make infra-validate   # real CloudFormation validate-template (needs AWS creds)
+make infra-deploy     # deploy the stack via boto3 (needs AWS creds)
+make lambda-package   # standalone handler zips
+make template-sync    # re-embed handlers into the template after editing them
 ```
 
 Always run `make check` before finishing a change.

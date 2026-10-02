@@ -221,6 +221,14 @@ The ingest Lambda stores only real Open-Meteo responses and fails loudly if the
 upstream returns nothing. The spike Lambda reads the API's forecast and publishes
 the spike fields verbatim, de-duplicating per hour so subscribers are not spammed.
 
+The template embeds the tested handler source directly in its `ZipFile` blocks,
+so a single `python infra/deploy_stack.py` (or `make infra-deploy`) produces
+working functions — no manual `update-function-code` follow-up. `deploy_stack.py`
+drives CloudFormation through boto3 so the AWS CLI is not required, and it prints
+only values AWS returned. `infra/tests/test_template_sync.py` fails if the
+embedded code drifts from `infra/lambda/*/handler.py`; regenerate with
+`make template-sync`.
+
 ## Failure behaviour
 
 | Situation | Behaviour |

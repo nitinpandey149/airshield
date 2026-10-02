@@ -15,7 +15,7 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
         frontend-build test test-core test-backend test-infra test-frontend lint clean \
         docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke \
-        infra-validate infra-deploy lambda-package check
+        infra-validate infra-deploy lambda-package template-sync check
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -90,20 +90,17 @@ sagemaker-smoke: ## Invoke the deployed SageMaker endpoint once
 	$(PY) ml/sagemaker/smoke_test.py
 
 # ----------------------------------------------------------------------- aws
-infra-validate: ## Validate the CloudFormation template (needs AWS creds)
-	aws cloudformation validate-template \
-		--template-body file://infra/cloudformation/airshield-pulse.yaml
+infra-validate: ## Validate the CloudFormation template against AWS (needs AWS creds)
+	$(PY) infra/deploy_stack.py --validate-only
 
 infra-deploy: ## Deploy the AWS stack (needs AWS creds; ENV=dev by default)
-	aws cloudformation deploy \
-		--template-file infra/cloudformation/airshield-pulse.yaml \
-		--stack-name airshield-pulse-$(or $(ENV),dev) \
-		--capabilities CAPABILITY_NAMED_IAM \
-		--parameter-overrides Environment=$(or $(ENV),dev)
+	$(PY) infra/deploy_stack.py --env $(or $(ENV),dev)
 
 lambda-package: ## Build the two Lambda zip packages
-	cd infra/lambda && zip -r ../../infra/lambda/ingest.zip ingest -x '*.pyc'
-	cd infra/lambda && zip -r ../../infra/lambda/spike.zip spike -x '*.pyc'
+	$(PY) infra/build_lambda_packages.py
+
+template-sync: ## Re-embed the Lambda handlers into the CloudFormation template
+	$(PY) infra/sync_template_code.py
 
 # --------------------------------------------------------------------- clean
 clean: ## Remove build output and caches
