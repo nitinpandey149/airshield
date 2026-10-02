@@ -13,8 +13,10 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
-        frontend-build test test-core test-backend test-frontend lint clean \
-        docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke check
+        frontend-build web web-demo test test-core test-backend test-infra test-frontend lint clean \
+        docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke \
+        infra-validate infra-deploy lambda-package template-sync check \
+        knowledge knowledge-fetch knowledge-offline
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -44,6 +46,16 @@ train-offline: ## Retrain from the bundled dataset (no network required)
 	$(PY) -m airshield_core.train --out ml/artifacts --rounds 400 \
 		--from-csv ml/data/demo/demo_hourly.csv
 
+# --------------------------------------------------------------- knowledge
+knowledge-fetch: ## Fetch/refresh the knowledge base source text from official sources
+	$(PY) knowledge/fetch_sources.py
+
+knowledge: knowledge-fetch ## Build the retrieval index for Ask AirShield
+	$(PY) knowledge/build_index.py
+
+knowledge-offline: ## Build the retrieval index from the already-fetched sources
+	$(PY) knowledge/build_index.py
+
 # ---------------------------------------------------------------- run locally
 api: ## Run the FastAPI backend with autoreload on :8000
 	$(VENV)/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend
@@ -54,14 +66,23 @@ frontend-dev: ## Run the Vite dev server on :5173
 frontend-build: ## Type-check and build the frontend
 	cd frontend && npm run build
 
+web: frontend-build ## Build the web app and serve it with the API on :8000
+	AIRSHIELD_SERVE_FRONTEND=true $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port $(or $(PORT),8000) --app-dir backend
+
+web-demo: frontend-build ## Same as `web`, but serves the labelled bundled dataset
+	AIRSHIELD_SERVE_FRONTEND=true AIRSHIELD_DATA_MODE=demo $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port $(or $(PORT),8000) --app-dir backend
+
 # --------------------------------------------------------------------- tests
-test: test-core test-backend ## Run all Python tests
+test: test-core test-backend test-infra ## Run all Python tests
 
 test-core: ## Run the core library tests
 	cd core && ../$(PY) -m pytest tests -q
 
 test-backend: ## Run the API tests
 	cd backend && ../$(PY) -m pytest tests -q
+
+test-infra: ## Run the AWS Lambda handler tests
+	cd infra && ../$(PY) -m pytest tests -q
 
 test-frontend: ## Type-check the frontend
 	cd frontend && npx tsc -b --noEmit
@@ -84,6 +105,19 @@ sagemaker-deploy: ## Deploy the trained artifact to a SageMaker endpoint
 
 sagemaker-smoke: ## Invoke the deployed SageMaker endpoint once
 	$(PY) ml/sagemaker/smoke_test.py
+
+# ----------------------------------------------------------------------- aws
+infra-validate: ## Validate the CloudFormation template against AWS (needs AWS creds)
+	$(PY) infra/deploy_stack.py --validate-only
+
+infra-deploy: ## Deploy the AWS stack (needs AWS creds; ENV=dev by default)
+	$(PY) infra/deploy_stack.py --env $(or $(ENV),dev)
+
+lambda-package: ## Build the two Lambda zip packages
+	$(PY) infra/build_lambda_packages.py
+
+template-sync: ## Re-embed the Lambda handlers into the CloudFormation template
+	$(PY) infra/sync_template_code.py
 
 # --------------------------------------------------------------------- clean
 clean: ## Remove build output and caches

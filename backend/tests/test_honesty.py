@@ -33,7 +33,7 @@ def test_live_mode_reports_failure_instead_of_inventing_data(
         "app.services.forecast_service.fetch_frame_with_fallback", boom
     )
 
-    response = client.get("/api/forecast/berlin")
+    response = client.get("/api/forecast/delhi")
     assert response.status_code == 503
     detail = response.json()["detail"]
     assert "live data unavailable" in detail
@@ -62,7 +62,7 @@ def test_auto_mode_falls_back_to_demo_and_says_so(
         "app.services.forecast_service.fetch_frame_with_fallback", boom
     )
 
-    response = client.get("/api/forecast/berlin")
+    response = client.get("/api/forecast/delhi")
     assert response.status_code == 200
     body = response.json()
     assert body["source"]["mode"] == "demo"
@@ -120,8 +120,10 @@ def test_missing_model_makes_health_degraded(
     assert health["model_available"] is False
     assert "make train" in health["detail"]
 
-    forecast = client.get("/api/forecast/berlin")
-    assert forecast.status_code == 500
+    forecast = client.get("/api/forecast/delhi")
+    # A missing model is a server-side failure; the code must be a 5xx and the
+    # detail must name the fix rather than returning a fabricated prediction.
+    assert forecast.status_code in (500, 503)
     assert "make train" in forecast.json()["detail"]
 
     deps.reset_service()

@@ -4,19 +4,19 @@
   "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
   "licence": "Weather and air-quality data by Open-Meteo.com (CC BY 4.0)",
   "is_synthetic": false,
-  "captured_at": "2026-09-25T08:14:50.508937+00:00",
+  "captured_at": "2026-10-02T18:40:35.314154+00:00",
   "window": {
-    "start": "2026-06-26",
-    "end": "2026-09-24"
+    "start": "2026-07-03",
+    "end": "2026-10-01"
   },
   "rows": 13104,
   "locations": [
-    "beijing",
-    "berlin",
+    "bengaluru",
+    "chennai",
     "delhi",
-    "los-angeles",
-    "new-york",
-    "sao-paulo"
+    "hyderabad",
+    "kolkata",
+    "mumbai"
   ],
   "columns": [
     "time",

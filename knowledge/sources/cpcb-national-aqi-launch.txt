@@ -1,0 +1,104 @@
+The Minister for
+Environment, Forests & Climate Change Shri Prakash Javadekar today launched
+‘The National Air Quality Index’ (AQI) in New Delhi.Speaking
+on the occasion, Shri Javadekar outlined the AQI, as ‘One Number- One
+Colour-One Description’ for the common man to judge the air quality within his
+vicinity. The formulation of the index was a continuation of the initiatives
+under Swachh Bharat Mission envisioned by the Hon’ble Prime Minister Shri
+NarendraModi.
+
+Elaborating
+further, the Minister stated that the index constituted part of the
+Government’s mission to introduce the culture of cleanliness. Institutional and
+infrastructural measures were being undertaken in order to ensure that the
+mandate of cleanliness was fulfilled across the country. As a part of the
+process, he mentioned that clean air would be a part of Peoples’ campaignto
+take up the issue in a mission mode. In order to widen the ambit of the culture
+of cleanliness, the Ministry proposed to discuss the issues concerned regarding
+quality of air with the Ministry of Human Resource Development in order to
+include this issue as part of the sensitizationprogramme in the course
+curriculum.
+
+Under
+the new measurement process, Shri Javadekar stated that an effort had been made
+to include a comprehensive set of parameters. While the earlier measuring index
+was limited to three indicators, the current measurement index had been made
+quite comprehensive by the addition of five additional parameters. Under the
+current measurement of air quality, 8 parameters. The initiatives undertaken by
+the Ministry recently aimed at balancing environment and conservation and
+development.
+
+Air pollution
+has been a matter of environmental and health concerns,particularly in urban
+areas. Central Pollution Control Board along with State Pollution Control
+Boards has been operating National Air Monitoring Program (NAMP) covering 240
+cities of the country. In addition, continuous monitoring systems that provide
+data on near real-time basis are also installed in a few cities.
+
+Traditionally,
+air quality status has been reported through voluminous data. Thus, it was
+important that information on air quality is put up in public domain
+in simple linguistic terms that is easily understood by a common person. Air
+Quality Index (AQI) is one such tool for effective dissemination of air quality
+information to people. An Expert Group comprising medical professionals, air
+quality experts, academia, advocacy groups, and SPCBs was constitutedand a
+technical study was awarded to IIT Kanpur. IIT Kanpur and the Expert Group
+recommended an AQI scheme.
+
+There are six
+AQI categories, namely Good, Satisfactory, Moderately polluted, Poor, Very
+Poor, and Severe.  The proposed AQI will consider eight pollutants (PM10,
+PM2.5, NO2, SO2, CO, O3, NH3,
+and Pb) for which short-term (up to 24-hourly averaging period) National
+Ambient Air Quality Standards are prescribed.
+
+Based
+on the measured ambient concentrations, corresponding standards and likely
+health impact, a sub-index is calculated for each of these pollutants. The
+worst sub-index reflects overall AQI. Associated likely health impacts for
+different AQI categories and pollutants have been also been suggested, with
+primary inputs from the medical expert members of the group. The AQI values and
+corresponding ambient concentrations (health breakpoints) as well as associated
+likely health impacts for the identified eight pollutants are as follows:
+
+| AQI Category, Pollutants and Health   Breakpoints |
+
+| AQI   Category (Range) | PM10 24-hr | PM2.5 24-hr | NO2 24-hr | O3 8-hr | CO 8-hr   (mg/m3) | SO2 24-hr | NH3 24-hr | Pb 24-hr |
+
+| Good   (0-50) | 0-50 | 0-30 | 0-40 | 0-50 | 0-1.0 | 0-40 | 0-200 | 0-0.5 |
+
+| Satisfactory   (51-100) | 51-100 | 31-60 | 41-80 | 51-100 | 1.1-2.0 | 41-80 | 201-400 | 0.5 –1.0 |
+
+| Moderately   polluted (101-200) | 101-250 | 61-90 | 81-180 | 101-168 | 2.1-   10 | 81-380 | 401-800 | 1.1-2.0 |
+
+| Poor (201-300) | 251-350 | 91-120 | 181-280 | 169-208 | 10-17 | 381-800 | 801-1200 | 2.1-3.0 |
+
+| Very   poor (301-400) | 351-430 | 121-250 | 281-400 | 209-748* | 17-34 | 801-1600 | 1200-1800 | 3.1-3.5 |
+
+| Severe (401-500) | 430   + | 250+ | 400+ | 748+* | 34+ | 1600+ | 1800+ | 3.5+ |
+*One
+hourly monitoring (for mathematical calculations only)
+
+| AQI  | Associated Health Impacts  |
+
+| Good  (0–50)  | Minimal   Impact |
+
+| Satisfactory  (51–100)  | May cause   minor breathing discomfort to sensitive people. |
+
+| Moderately polluted  (101–200)  | May cause   breathing discomfort to people with lung disease such as asthma, and   discomfort to people with heart disease, children and older adults.  |
+
+| Poor  (201–300)  | May cause   breathing discomfort to people on prolonged exposure, and discomfort to   people with heart disease  |
+
+| Very Poor  (301–400)  | May cause   respiratory illness to the people on prolonged exposure. Effect may be more   pronounced in people with lung and heart diseases.  |
+
+| Severe  (401-500)  | May cause   respiratory impact even on healthy people, and serious health impacts on   people with lung/heart disease. The health impacts may be experienced even   during light physical activity. |
+
+The report will
+also be available on CPCB’s website (www.cpcb.nic.in) for 45 daysfor
+seeking public views/comments. Thereafter, AQI scheme will be finalized after
+evaluating the comments received and incorporating changes if any in the
+scheme.
+
+CP/GV
+
+****

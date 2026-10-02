@@ -29,6 +29,8 @@ COPY backend/ ./backend/
 COPY core/ ./core/
 COPY ml/data ./ml/data
 COPY scripts/ ./scripts/
+# The knowledge corpus is committed, so the assistant works with no network.
+COPY knowledge/ ./knowledge/
 
 # Serve the built frontend as static files from the same origin.
 COPY --from=frontend-build /build/frontend/dist ./frontend/dist
@@ -37,6 +39,8 @@ ENV AIRSHIELD_ARTIFACT_DIR=/app/ml/artifacts \
     AIRSHIELD_DATA_MODE=auto \
     AIRSHIELD_INFERENCE_BACKEND=local \
     AIRSHIELD_SERVE_FRONTEND=true \
+    AIRSHIELD_KNOWLEDGE_DIR=/app/knowledge \
+    AIRSHIELD_RAG_INDEX_DIR=/app/knowledge/index \
     PYTHONPATH=/app/backend:/app/core/src
 
 # Train from the bundled dataset so the image is self-contained and works with
@@ -45,6 +49,14 @@ ENV AIRSHIELD_ARTIFACT_DIR=/app/ml/artifacts \
 RUN python -m airshield_core.train --out /app/ml/artifacts --rounds 400 \
         --from-csv /app/ml/data/demo/demo_hourly.csv \
     && test -f /app/ml/artifacts/model.ubj
+
+# Build the retrieval index from the committed corpus. model2vec needs the
+# model weights once; if the download fails the builder falls back to the
+# lexical embedder and says so, rather than failing the build.
+RUN python knowledge/build_index.py \
+        --knowledge-dir /app/knowledge \
+        --index-dir /app/knowledge/index \
+    && test -f /app/knowledge/index/index.npz
 
 EXPOSE 8000
 

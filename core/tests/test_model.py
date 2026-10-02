@@ -31,7 +31,7 @@ def trained(tmp_path_factory, demo_csv: Path):
     result = train_model(
         frame,
         artifact_dir=out,
-        num_rounds=60,
+        num_rounds=300,
         locations=sorted(frame["location_name"].unique().tolist()),
         data_source={"kind": "test", "path": str(demo_csv)},
     )
@@ -114,7 +114,7 @@ def test_predictor_round_trip(trained) -> None:
 
     from airshield_core.features import latest_feature_row
 
-    subset = frame[frame["location_name"] == "Berlin"].tail(72).reset_index(drop=True)
+    subset = frame[frame["location_name"] == "Delhi"].tail(72).reset_index(drop=True)
     features, base_time = latest_feature_row(subset)
 
     value = predictor.predict(features)

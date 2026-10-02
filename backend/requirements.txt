@@ -26,3 +26,7 @@ pytest-asyncio>=0.24
 
 # Static file serving for the built frontend in Docker
 aiofiles>=24.1
+
+# Ask AirShield: retrieval layer. numpy is already pulled in by the ML stack;
+# model2vec provides CPU-only semantic embeddings for the knowledge index.
+model2vec>=0.5

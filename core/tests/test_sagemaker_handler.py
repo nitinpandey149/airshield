@@ -62,7 +62,7 @@ def test_predict_fn_inverts_the_log1p_transform(handler, loaded_model, demo_fram
     """Serving must invert log1p exactly as training applied it."""
     from airshield_core.features import latest_feature_row
 
-    subset = demo_frame[demo_frame["location_name"] == "Berlin"].tail(72).reset_index(drop=True)
+    subset = demo_frame[demo_frame["location_name"] == "Delhi"].tail(72).reset_index(drop=True)
     features, _ = latest_feature_row(subset)
 
     result = handler.predict_fn(features, loaded_model)

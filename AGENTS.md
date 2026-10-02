@@ -1,7 +1,8 @@
 # AGENTS.md — working notes for automated agents and contributors
 
-AirShield predicts next-hour PM2.5 and turns it into an air-exposure alert.
-Read this before changing anything.
+AirShield Pulse predicts PM2.5 (1h / 3h / 6h), then turns it into exposure
+avoidance: when to go outside and which route exposes you less. Read this before
+changing anything.
 
 ## Non-negotiables
 
@@ -11,12 +12,24 @@ This is the defining constraint of the project.
 - No hard-coded or interpolated "sample" values that get served as real output.
 - No invented model accuracy. Metrics are computed on a held-out split and read
   back from `ml/artifacts/metadata.json`.
+- No invented spike confidence. It comes from `spike_calibration.json`
+  (`empirical_calibration`) or the transparent rule fallback (`rule_based_estimate`).
+  The `confidence_basis` field must always name which.
 - No invented AWS responses. If there is no credentials or endpoint, report a
-  failure.
+  failure. `/api/aws/status` reports only what is really configured.
 - Demo data must always be labelled. If you add a code path that serves bundled
   data, set `SourceInfo.mode = "demo"` and populate the response `notice` field.
 
 `backend/tests/test_honesty.py` enforces this. Keep it passing.
+
+## Language rules (product-facing copy)
+
+These are product requirements, not style preferences.
+
+- Never call a route or window **safe**. Use "lower predicted exposure".
+- Never present spike signals as causes. They are "possible contributing signals".
+- Exposure multipliers are **engineering approximations for relative comparison**,
+  not medical measurements. Every exposure response repeats this (`exposure_note`).
 
 ## Layout and dependency direction
 
@@ -24,25 +37,73 @@ This is the defining constraint of the project.
 core/src/airshield_core   domain logic; imports nothing from backend or frontend
 backend/app               HTTP layer; imports core
 frontend/src              UI; talks to backend only via src/lib/api.ts
+knowledge/                curated source text + manifest; index/ is a build output
 ml/sagemaker              real SageMaker train / deploy / serve
+infra/cloudformation      the AWS stack (S3, DynamoDB, SNS, Lambda, EventBridge)
+infra/lambda              ingest + spike-notification handlers (tested in infra/tests)
 ```
 
 `core` must stay free of FastAPI and HTTP-server concerns so it remains testable
 and reusable inside the SageMaker training container.
 
+## The Pulse modules (core)
+
+- `exposure.py` — exposure engine + `compare_exposures()` relative reduction.
+- `events.py` — sharp / sustained spike detection; consumes `spike_calibration`.
+- `windows.py` — safe-window optimizer; scores the **whole** candidate window.
+- `routing.py` — real Valhalla/OSRM geometry, segmentation, via-point detours.
+- `route_exposure.py` — per-segment aggregation and route ranking.
+- `spike_calibration.py` — empirical spike frequency learned during training.
+
+Backend services: `forecast_service`, `planning_service`, `route_service`,
+`assistant_service`, `aws_status`. Routers: `forecast`, `meta`, `planning`,
+`routes`, `assistant`, `aws`.
+
+## The assistant (RAG)
+
+`core/src/airshield_core/rag/` holds a small retrieval pipeline:
+`documents` -> `chunking` -> `embeddings` -> `vectorstore` -> `retrieval` ->
+`context` -> `answering`, with `providers` for the language model.
+
+Rules that must not be broken:
+
+1. **The assistant never produces a number.** Forecasts, AQI and exposure come
+   from the model and the exposure engine. `rag/context.py` reads the *same*
+   payloads `/api/forecast` and `/api/plan` return — never recompute them.
+2. **Refusal over near-miss.** Below `rag_min_score`, retrieval returns nothing
+   and the answer is an explicit `insufficient_knowledge` refusal. Do not lower
+   the floor to make answers look better.
+3. **No silent fallback.** With no LLM configured the mode is `extractive`
+   (retrieved passages verbatim); when the LLM fails it is `llm_error` and the
+   sources are still returned. The embedder reports `is_semantic` honestly.
+4. **Every chunk cites a real source.** The manifest carries title, publisher,
+   URL and licence; `fetch_sources.py` records failures rather than inventing
+   text. `knowledge/sources/` is committed; `knowledge/index/` is not.
+5. **No medical claims.** It says "lower predicted exposure", never "safe".
+
+Endpoints: `POST /api/assistant/chat`, `GET /api/assistant/status`.
+Tests: `core/tests/test_rag.py`, `backend/tests/test_assistant_api.py` — both
+drive real retrieval, never stubbed hits.
+
 ## Commands
 
 ```bash
 make setup            # venv + python deps + npm install
-make train            # fetch real data, train, write ml/artifacts
+make train            # fetch real data, train all horizons, calibrate spikes
 make train-offline    # train from bundled real dataset (no network)
 make api              # backend on :8000 (reload)
 make frontend-dev     # dashboard on :5173
-make test             # core + backend pytest
+make web              # build + serve the web app and API on :8000
+make web-demo         # same, from the labelled bundled dataset
+make test             # core + backend + infra pytest
 make test-frontend    # tsc type check
 make check            # everything
 make build-demo-data  # refresh ml/data/demo from Open-Meteo
 make docker-build && make docker-run
+make infra-validate   # real CloudFormation validate-template (needs AWS creds)
+make infra-deploy     # deploy the stack via boto3 (needs AWS creds)
+make lambda-package   # standalone handler zips
+make template-sync    # re-embed handlers into the template after editing them
 ```
 
 Always run `make check` before finishing a change.
@@ -62,6 +123,13 @@ Always run `make check` before finishing a change.
    metadata. Serving validates order and raises on mismatch.
 6. **AQI single source of truth.** Compute it in `airshield_core.aqi` only; the
    `aqi` and `alert` response blocks must agree.
+7. **One model per horizon.** Never stretch the 1h model to serve 3h/6h. Each
+   horizon has its own artifact; a missing one appears in `unavailable_horizons`.
+8. **Exposure is duration-weighted.** Route and window comparisons weight by time,
+   so a cleaner-but-slower option can still win. Do not "fix" that to a naive
+   per-hour average.
+9. **Routes are real.** `routing.py` only ever returns engine geometry. If no
+   engine answers, raise `RoutingError` — never synthesise a path.
 
 ## Testing conventions
 
@@ -102,3 +170,9 @@ The image trains the model during build from the bundled dataset, so it works
 with no network at runtime. Trained artifacts are gitignored and therefore cannot
 be copied from the build context — do not try. `AIRSHIELD_SERVE_FRONTEND=true`
 mounts the built dashboard at `/`; `/api/*` routes always take precedence.
+
+`knowledge/` is copied in and the retrieval index is built during the image
+build, next to model training, so the assistant works offline too. If model2vec
+cannot be fetched at build time the builder falls back to the lexical embedder
+and reports it — it does not fail the build and it does not pretend to be
+semantic.

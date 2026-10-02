@@ -26,6 +26,16 @@ MODEL_FILENAME = "model.ubj"
 METADATA_FILENAME = "metadata.json"
 
 
+def model_filename(horizon: int = 1) -> str:
+    """Artifact file name for a horizon. Horizon 1 keeps the legacy names."""
+    return MODEL_FILENAME if horizon == 1 else f"model_h{horizon}.ubj"
+
+
+def metadata_filename(horizon: int = 1) -> str:
+    """Metadata file name for a horizon. Horizon 1 keeps the legacy names."""
+    return METADATA_FILENAME if horizon == 1 else f"metadata_h{horizon}.json"
+
+
 class ModelNotFoundError(RuntimeError):
     """Raised when no usable local artifact exists."""
 
@@ -36,8 +46,10 @@ class ModelMetadata:
 
     trained_at: str
     feature_columns: list[str]
+    horizon_hours: int = 1
     metrics: dict[str, float] = field(default_factory=dict)
     baseline_metrics: dict[str, float] = field(default_factory=dict)
+    moving_average_metrics: dict[str, float] = field(default_factory=dict)
     train_rows: int = 0
     test_rows: int = 0
     train_window: dict[str, str] = field(default_factory=dict)
@@ -70,21 +82,29 @@ class Forecast:
 
 
 class LocalPredictor:
-    """Serves 1-hour-ahead PM2.5 forecasts from a local XGBoost artifact."""
+    """Serves PM2.5 forecasts from a local XGBoost artifact.
 
-    def __init__(self, artifact_dir: Path | str):
+    ``horizon`` selects which trained booster to use. Horizon 1 uses the legacy
+    ``model.ubj`` / ``metadata.json`` names; other horizons use
+    ``model_h{N}.ubj`` / ``metadata_h{N}.json``.
+    """
+
+    def __init__(self, artifact_dir: Path | str, horizon: int = 1):
+        if horizon < 1:
+            raise ValueError("horizon must be >= 1")
         self.artifact_dir = Path(artifact_dir)
+        self.horizon = horizon
         self._booster = None
         self._metadata: ModelMetadata | None = None
 
     # ------------------------------------------------------------- loading
     @property
     def model_path(self) -> Path:
-        return self.artifact_dir / MODEL_FILENAME
+        return self.artifact_dir / model_filename(self.horizon)
 
     @property
     def metadata_path(self) -> Path:
-        return self.artifact_dir / METADATA_FILENAME
+        return self.artifact_dir / metadata_filename(self.horizon)
 
     @property
     def is_available(self) -> bool:
@@ -118,7 +138,7 @@ class LocalPredictor:
     def model_version(self) -> str:
         meta = self.metadata
         stamp = meta.trained_at.replace(":", "").replace("-", "")[:15]
-        return f"xgboost-pm25-1h-{stamp}"
+        return f"xgboost-pm25-{self.horizon}h-{stamp}"
 
     # ---------------------------------------------------------- prediction
     def predict(self, features: pd.DataFrame) -> float:
@@ -147,7 +167,7 @@ class LocalPredictor:
         return float(np.expm1(raw))
 
     def forecast(self, features: pd.DataFrame, base_time: datetime) -> Forecast:
-        """Produce a :class:`Forecast` for the hour after ``base_time``."""
+        """Produce a :class:`Forecast` for the hour ``horizon`` after ``base_time``."""
         from datetime import timedelta
 
         value = self.predict(features)
@@ -156,10 +176,10 @@ class LocalPredictor:
         return Forecast(
             predicted_pm25=value,
             base_time=base_time,
-            target_time=base_time + timedelta(hours=1),
+            target_time=base_time + timedelta(hours=self.horizon),
             model_version=self.model_version,
             backend="local",
-            horizon_hours=1,
+            horizon_hours=self.horizon,
             metadata={"artifact_dir": str(self.artifact_dir)},
         )
 

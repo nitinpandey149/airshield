@@ -139,7 +139,7 @@ class OpenMeteoSource:
         break the pydantic schema, so that row is stripped here and re-appended
         by :meth:`fetch_frame`.
         """
-        frame = self.fetch_frame(latitude, longitude)
+        frame, _ = self.fetch_frame(latitude, longitude)
         rows = [
             Observation(**record)
             for record in frame.dropna(subset=["pm2_5"]).to_dict("records")
@@ -159,8 +159,19 @@ class OpenMeteoSource:
             rows=rows,
         )
 
-    def fetch_frame(self, latitude: float, longitude: float) -> pd.DataFrame:
-        """Recent hourly frame, including the forecast hour as the last row."""
+    def fetch_frame(
+        self, latitude: float, longitude: float, *, future_hours: int = 1
+    ) -> tuple[pd.DataFrame, pd.Timestamp]:
+        """Recent hourly frame plus ``future_hours`` forecast rows.
+
+        Returns ``(frame, base_time)``. ``base_time`` is the most recent
+        *measured* hour; rows after it carry the upstream forecast, with
+        ``is_forecast`` set to ``True``. ``pm2_5`` on forecast rows is the
+        upstream air-quality model's own forecast (not our model's), which is why
+        the column is kept but flagged.
+        """
+        if future_hours < 1:
+            raise ValueError("future_hours must be >= 1")
         air_payload = _get(
             AIR_QUALITY_URL,
             {
@@ -193,8 +204,8 @@ class OpenMeteoSource:
 
         # The air-quality endpoint returns forecast PM2.5 as well as measured
         # values, so "not NaN" is not the same as "observed". Anchor on the
-        # current hour instead: keep everything up to now, plus the single
-        # forecast hour that follows it (which supplies the wx_next_* features).
+        # current hour instead: keep everything up to now, plus the forecast
+        # hours that follow it.
         now_hour = pd.Timestamp.now(tz="UTC").floor("h")
         observed = frame[frame["time"] <= now_hour]
         if observed.empty:
@@ -208,7 +219,10 @@ class OpenMeteoSource:
             )
 
         cutoff = observed.index[-1]
-        return frame.iloc[: cutoff + 2].reset_index(drop=True)
+        base_time = pd.Timestamp(frame["time"].iloc[cutoff])
+        trimmed = frame.iloc[: cutoff + 1 + future_hours].reset_index(drop=True)
+        trimmed["is_forecast"] = trimmed["time"] > base_time
+        return trimmed, base_time
 
 
 def fetch_frame_with_fallback(
@@ -217,13 +231,16 @@ def fetch_frame_with_fallback(
     *,
     timeout: float = 15.0,
     retries: int = 2,
-) -> tuple[pd.DataFrame, SourceInfo]:
+    future_hours: int = 1,
+) -> tuple[pd.DataFrame, SourceInfo, pd.Timestamp]:
     """Fetch live data, reporting provenance; raises :class:`UpstreamError` on failure.
 
     Callers decide how to fall back so that the demo path is always explicit.
+    Returns ``(frame, source_info, base_time)`` where ``base_time`` is the most
+    recent measured hour.
     """
     source = OpenMeteoSource(timeout=timeout, retries=retries)
-    frame = source.fetch_frame(latitude, longitude)
+    frame, base_time = source.fetch_frame(latitude, longitude, future_hours=future_hours)
     info = SourceInfo(
         name=source.name,
         url=source.url,
@@ -232,7 +249,7 @@ def fetch_frame_with_fallback(
         fetched_at=datetime.now(timezone.utc),
         is_synthetic=False,
     )
-    return frame, info
+    return frame, info, base_time
 
 
 def default_history_window(days: int) -> tuple[date, date]:

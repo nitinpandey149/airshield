@@ -26,16 +26,31 @@ core/src/airshield_core      Domain logic. No FastAPI, no HTTP server, no UI.
   train.py                   Training + metric/baseline reporting + artifact I/O
   predict.py                 Artifact loading and inference
   aqi.py                     AQI conversion and alert rules
+  exposure.py                Exposure engine (activity x duration x location)
+  events.py                  Sharp / sustained pollution spike detection
+  windows.py                 Safe-window optimizer over candidate windows
+  routing.py                 Real route geometry, segmentation, per-segment data
+  spike_calibration.py       Empirical spike confidence learned from training data
+  rag/                       Retrieval-grounded assistant (documents, chunking,
+                             embeddings, vector store, retrieval, context bridge,
+                             providers, answering)
   config.py                  Environment-backed settings
 
 backend/app                  HTTP layer. Thin: validation, orchestration, errors.
   deps.py                    Predictor/service lifecycle (built once, reused)
   services/forecast_service  Orchestrates the core pipeline
+  services/planning_service  Exposure planner + safe-window optimization
+  services/route_service     Route comparison + per-route exposure ranking
+  services/assistant_service Retrieval-grounded Q&A over the knowledge corpus
+  services/aws_status        Reports which AWS services are really configured
   services/sagemaker_client  Amazon SageMaker runtime invocation
-  routers/                   forecast + meta endpoints
+  routers/                   forecast, meta, planning, routes, assistant, aws endpoints
 
 frontend/src                 Presentation. Typed against the backend schema.
+knowledge/                   Curated source text + manifest; index is a build output
 ml/sagemaker                 Real SageMaker training, deployment, serving
+infra/cloudformation         The AWS stack (S3, DynamoDB, SNS, Lambda, EventBridge)
+infra/lambda                 Ingest and spike-notification handlers
 ```
 
 The dependency direction is strictly one-way: `frontend -> backend -> core`.
@@ -58,6 +73,64 @@ The dependency direction is strictly one-way: `frontend -> backend -> core`.
    sensitive-group advice.
 5. **Assemble** — the response carries location, source, notice, forecast, aqi,
    alert and the history series (with the predicted point appended and flagged).
+
+## The Pulse layer
+
+AirShield Pulse adds four domain modules on top of the original forecast
+pipeline. Each is pure, testable core logic, reused by both the API and the
+tests.
+
+### `exposure.py` — exposure engine
+
+```
+Exposure = concentration x duration x activity intensity x location factor
+```
+
+Activity intensity multipliers are engineering approximations for **relative
+comparison**, not medical measurements, and every response that contains an
+exposure score repeats that caveat. `compare_exposures()` implements the
+relative-reduction formula `(worst - candidate) / worst x 100`, which is what the
+UI renders as "approximately N% lower predicted exposure".
+
+### `events.py` — pollution event detector
+
+Two event kinds:
+
+- **sharp** — a large step between adjacent forecast hours.
+- **sustained** — a monotonic climb across the forecast horizon.
+
+Confidence comes from `spike_calibration.py`, which is fit at training time by
+measuring, for each PM2.5 trend bucket, how often that bucket was followed by a
+rise in the held-out data. When no calibration artifact exists, `events.py` falls
+back to a transparent rule-based estimate and reports
+`confidence_basis="rule_based"` so the UI can say exactly how the number was
+produced. Confidence is never invented.
+
+Associated signals (wind, pressure, NO2, O3, temperature) are returned as
+**possible contributing signals**, and the response carries an explicit
+disclaimer that they are associated conditions, not proven causes.
+
+### `windows.py` — safe-window optimizer
+
+Given a location, activity, duration and preferred time range, it enumerates
+candidate start times, scores each one over its **entire duration** (not the
+single lowest PM2.5 hour), and returns the best, second-best and highest-exposure
+windows with the relative reduction between them.
+
+### `routing.py` — route exposure
+
+Route geometry comes from a real OpenStreetMap engine (Valhalla, with OSRM as a
+fallback). When the engine returns fewer alternatives than requested, genuine
+via-point detours are requested from the same engine so alternatives are real,
+never invented. Each route is split into equal-distance segments; predicted PM2.5
+is sampled at each segment midpoint and aggregated:
+
+```
+Route exposure = sum over segments ( segment PM2.5 x segment duration x activity factor )
+```
+
+If no engine answers, `RoutingError` propagates and the API reports the feature
+as unavailable.
 
 ## Feature engineering and leakage
 
@@ -121,6 +194,83 @@ Only Amazon SageMaker AI is used as an AWS AI/ML service.
 `/api/health` report `degraded` with the missing variable named, rather than
 silently serving local predictions under an AWS label.
 
+## AWS architecture
+
+Every service maps to a concrete step in one of two pipelines. Nothing is added
+to make the diagram look larger. `infra/cloudformation/airshield-pulse.yaml`
+declares the whole stack, and `backend/app/services/aws_status.py` reports which
+of those resources are actually configured in the running process — the
+`/api/aws/status` endpoint never claims a service is deployed when it is not.
+
+```
+Forecast pipeline
+  Open-Meteo → EventBridge (hourly) → ingest Lambda → S3 (training data)
+                                                    → DynamoDB (serving state)
+  SageMaker AI (training job + inference endpoint) → FastAPI → React frontend
+
+Notification pipeline
+  EventBridge (30 min) → spike Lambda → SNS topic → subscribers
+```
+
+| Service | Job |
+| --- | --- |
+| **Amazon SageMaker AI** | Training jobs and the real-time inference endpoint. The only AWS AI/ML service used. |
+| **AWS Lambda** | Hourly Open-Meteo ingestion (`infra/lambda/ingest`); 30-minute spike check (`infra/lambda/spike`). |
+| **Amazon S3** | Training datasets, model artifacts and versioned raw samples. |
+| **Amazon DynamoDB** | Latest observation per location; spike-notification de-duplication. |
+| **Amazon EventBridge** | The two schedules that drive the pipelines. |
+| **Amazon SNS** | Delivers pollution-spike notifications to subscribers. |
+| **Amazon CloudWatch** | Logs, errors, latency and service health for the Lambdas and the endpoint. |
+
+The ingest Lambda stores only real Open-Meteo responses and fails loudly if the
+upstream returns nothing. The spike Lambda reads the API's forecast and publishes
+the spike fields verbatim, de-duplicating per hour so subscribers are not spammed.
+
+The template embeds the tested handler source directly in its `ZipFile` blocks,
+so a single `python infra/deploy_stack.py` (or `make infra-deploy`) produces
+working functions — no manual `update-function-code` follow-up. `deploy_stack.py`
+drives CloudFormation through boto3 so the AWS CLI is not required, and it prints
+only values AWS returned. `infra/tests/test_template_sync.py` fails if the
+embedded code drifts from `infra/lambda/*/handler.py`; regenerate with
+`make template-sync`.
+
+## The assistant layer
+
+`Ask AirShield` answers *why*. It is kept deliberately separate from the
+prediction path, because it must never be able to produce a number.
+
+```
+question ─► Retriever ─► passages + citations ─┐
+                                               ├─► GroundedAnswerer ─► answer
+/api/forecast + /api/plan ─► ForecastContext ──┘
+```
+
+- **`rag/documents.py`** loads `knowledge/manifest.json` plus the source text and
+  exposes each document with its title, publisher, URL, category and licence.
+- **`rag/chunking.py`** splits on paragraph boundaries with overlap, and every
+  chunk inherits the full provenance of its document.
+- **`rag/embeddings.py`** wraps model2vec. `build_embedder()` returns a hashing
+  fallback that reports `is_semantic = False` when the model cannot be loaded, so
+  a degraded embedder is visible rather than silent.
+- **`rag/vectorstore.py`** is a NumPy `.npz` plus JSON metadata: searchable,
+  diffable, and inspectable without a server.
+- **`rag/retrieval.py`** applies the relevance floor. Below it, nothing is
+  returned — this is what makes refusal possible.
+- **`rag/context.py`** (`ForecastContext`) is the bridge. It reads the *same*
+  dicts `/api/forecast` and `/api/plan` return — it accepts either a dict or a
+  pydantic model — and renders them under `OBSERVED` / `PREDICTED` /
+  `RECOMMENDATION` headings. There is no second source of truth for the numbers.
+- **`rag/providers.py`** talks to any OpenAI-compatible `/chat/completions`
+  endpoint. When none is configured it returns `NoLLMProvider`, which is a real
+  provider that reports itself as unavailable.
+- **`rag/answering.py`** assembles the prompt, enforces grounding, and decides
+  between `llm`, `extractive`, `llm_error` and `refusal`.
+
+The system prompt instructs the model to never invent a number, to use
+"lower predicted exposure" rather than "safe", and to make no medical claim. The
+API reports the mode, the citations and the exact context values, so a claim can
+always be traced back to its origin.
+
 ## Failure behaviour
 
 | Situation | Behaviour |
@@ -131,6 +281,11 @@ silently serving local predictions under an AWS label.
 | SageMaker endpoint not configured | `degraded` naming `SAGEMAKER_ENDPOINT_NAME` |
 | SageMaker returns an unknown shape | `SageMakerError`, never a guessed value |
 | Unknown location slug | `404` listing the valid slugs |
+| Knowledge index missing | `/api/assistant/status` `ready=false`; chat `503` naming `make knowledge` |
+| Assistant disabled by config | chat `503` saying so |
+| Nothing relevant retrieved | `insufficient_knowledge=true`, an explicit refusal, no sources |
+| Language model configured but failing | `mode="llm_error"`; retrieved sources still returned, nothing fabricated |
+| No language model configured | `mode="extractive"`; retrieved passages returned verbatim |
 
 `backend/tests/test_honesty.py` asserts each row of this table.
 
@@ -153,3 +308,7 @@ gitignored while `.env.example` documents every key.
   cannot be mistaken for a live one.
 - `ModelCard` renders the real held-out metrics next to the persistence baseline,
   expanding to training window, feature importances and library versions.
+- `AskAirShield` shows the assistant's real readiness before the first question
+  (index present, embedder, whether a model is configured), disables itself with
+  an explanation when the index is missing, and renders each answer with its mode
+  and its citations. It never presents an ungrounded answer as grounded.

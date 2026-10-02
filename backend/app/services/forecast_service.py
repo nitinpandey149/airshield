@@ -9,27 +9,41 @@ Data-mode policy, applied explicitly rather than implicitly:
 
 A prediction is never fabricated: if no model can run, the request fails with an
 explanatory error instead of returning an invented number.
+
+Multi-horizon: each horizon has its own trained booster. Only horizons for which
+a model artifact actually exists are served, so a 1-hour model is never
+presented as a 6-hour forecast.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from airshield_core.aqi import aqi_from_pm25, exposure_alert
+from airshield_core.aqi import (
+    NATIONAL_AQI_MISSING_POLLUTANTS,
+    aqi_from_pm25,
+    exposure_alert,
+    national_aqi_from_pollutants,
+)
 from airshield_core.config import Settings
-from airshield_core.features import latest_feature_row
+from airshield_core.events import detect_spike
+from airshield_core.features import HORIZONS, latest_feature_row
 from airshield_core.schema import SourceInfo
 from airshield_core.sources.demo import DEMO_NOTICE, DemoSource
 from airshield_core.sources.openmeteo import UpstreamError, fetch_frame_with_fallback
 from airshield_core.sources.registry import Location
+from airshield_core.spike_calibration import CalibrationTable
 
 logger = logging.getLogger(__name__)
 
 #: Number of measured hours returned for charting.
 HISTORY_HOURS = 48
+#: Number of forecast hours the acquisition requests (enough for the longest
+#: horizon plus the exposure planner's forward view).
+FORECAST_HOURS = 12
 
 
 class ForecastError(RuntimeError):
@@ -43,6 +57,7 @@ class ForecastService:
         self.settings = settings
         self._predictor = predictor
         self._demo = DemoSource(settings.data_path)
+        self._calibration: CalibrationTable | None = None
 
     # ------------------------------------------------------------ predictor
     @property
@@ -56,73 +71,333 @@ class ForecastService:
     def set_predictor(self, predictor) -> None:
         self._predictor = predictor
 
+    # -------------------------------------------------------- horizon models
+    def available_horizons(self) -> list[int]:
+        """Horizons for which a usable predictor exists.
+
+        A SageMaker client serves a single endpoint whose horizon is whatever it
+        was trained for; a local artifact directory may hold several horizons.
+        """
+        if self.settings.inference_backend == "aws":
+            return [1]
+        from airshield_core.predict import LocalPredictor
+
+        return [
+            h
+            for h in HORIZONS
+            if LocalPredictor(self.settings.artifact_path, horizon=h).is_available
+        ]
+
+    def horizon_predictor(self, horizon: int):
+        """Return a predictor for a horizon, or raise a clear error."""
+        if self.settings.inference_backend == "aws":
+            if horizon != 1:
+                raise ForecastError(
+                    "the SageMaker endpoint serves the 1-hour model only; "
+                    f"a {horizon}-hour forecast needs a local artifact for that horizon"
+                )
+            return self.predictor
+
+        from airshield_core.predict import LocalPredictor, ModelNotFoundError
+
+        predictor = LocalPredictor(self.settings.artifact_path, horizon=horizon)
+        if not predictor.is_available:
+            raise ModelNotFoundError(
+                f"no trained {horizon}-hour model in {self.settings.artifact_path}. "
+                f"Train it with `make train` (horizons {HORIZONS})."
+            )
+        predictor.load()
+        return predictor
+
+    # ------------------------------------------------------------- calibration
+    @property
+    def calibration(self) -> CalibrationTable:
+        if self._calibration is None:
+            self._calibration = CalibrationTable.load(
+                self.settings.artifact_path / "spike_calibration.json"
+            )
+        return self._calibration
+
     # ----------------------------------------------------------------- data
-    def _acquire(self, location: Location) -> tuple[pd.DataFrame, SourceInfo, str | None]:
-        """Return ``(frame, source_info, notice)`` honouring the configured mode."""
+    def acquire(
+        self, location: Location, *, future_hours: int = FORECAST_HOURS
+    ) -> tuple[pd.DataFrame, SourceInfo, str | None, pd.Timestamp]:
+        """Return ``(frame, source_info, notice, base_time)`` for the data mode."""
         mode = self.settings.data_mode
 
         if mode == "demo":
-            frame = self._demo.fetch_frame_for_prediction(location.name)
-            return frame, self._demo.source_info(), DEMO_NOTICE
+            frame, base_time = self._demo.fetch_frame_for_prediction(
+                location.name, future_hours=future_hours
+            )
+            return frame, self._demo.source_info(), DEMO_NOTICE, base_time
 
         if mode == "live":
             try:
-                frame, info = fetch_frame_with_fallback(
+                frame, info, base_time = fetch_frame_with_fallback(
                     location.latitude,
                     location.longitude,
                     timeout=self.settings.http_timeout,
                     retries=self.settings.http_retries,
+                    future_hours=future_hours,
                 )
             except UpstreamError as exc:
                 raise ForecastError(
                     f"live data unavailable for {location.label}: {exc}. "
                     "Set AIRSHIELD_DATA_MODE=auto to allow the bundled demo fallback."
                 ) from exc
-            return frame, info, None
+            return frame, info, None, base_time
 
         # auto: prefer live, fall back loudly
         try:
-            frame, info = fetch_frame_with_fallback(
+            frame, info, base_time = fetch_frame_with_fallback(
                 location.latitude,
                 location.longitude,
                 timeout=self.settings.http_timeout,
                 retries=self.settings.http_retries,
+                future_hours=future_hours,
             )
-            return frame, info, None
+            return frame, info, None, base_time
         except UpstreamError as exc:
             logger.warning("live data unavailable (%s); falling back to DEMO data", exc)
-            frame = self._demo.fetch_frame_for_prediction(location.name)
-            return frame, self._demo.source_info(), DEMO_NOTICE
+            frame, base_time = self._demo.fetch_frame_for_prediction(
+                location.name, future_hours=future_hours
+            )
+            return frame, self._demo.source_info(), DEMO_NOTICE, base_time
+
+    def _acquire(self, location: Location):
+        """Backwards-compatible alias returning ``(frame, source, notice)``."""
+        frame, source, notice, _ = self.acquire(location, future_hours=1)
+        return frame, source, notice
+
+    # --------------------------------------------------------------- current
+    @staticmethod
+    def current_conditions(frame: pd.DataFrame) -> dict:
+        """The latest measured hour: PM2.5, other pollutants and weather."""
+        measured = frame[frame["pm2_5"].notna()]
+        if measured.empty:
+            raise ForecastError("no measured PM2.5 rows available for current conditions")
+        row = measured.iloc[-1]
+        result = aqi_from_pm25(float(row["pm2_5"]))
+
+        def value(name):
+            if name not in frame.columns:
+                return None
+            raw = row.get(name)
+            return None if raw is None or raw != raw else float(raw)
+
+        return {
+            "time": row["time"],
+            "pm2_5": float(row["pm2_5"]),
+            "pm10": value("pm10"),
+            "nitrogen_dioxide": value("nitrogen_dioxide"),
+            "ozone": value("ozone"),
+            "temperature_2m": value("temperature_2m"),
+            "relative_humidity_2m": value("relative_humidity_2m"),
+            "wind_speed_10m": value("wind_speed_10m"),
+            "wind_direction_10m": value("wind_direction_10m"),
+            "surface_pressure": value("surface_pressure"),
+            "precipitation": value("precipitation"),
+            "aqi": result.aqi,
+            "category": result.category,
+            "band": result.band,
+            "who_ratio": result.who_ratio,
+        }
+
+    # --------------------------------------------------------------- forecast
+    def predict_horizons(
+        self, frame: pd.DataFrame, base_time: pd.Timestamp
+    ) -> tuple[list[dict], list[str]]:
+        """Predict every available horizon from one feature frame.
+
+        Returns ``(forecasts, unavailable)`` where ``unavailable`` names the
+        horizons that were requested but have no trained model, so the client can
+        see exactly what is missing instead of assuming coverage.
+        """
+        forecasts: list[dict] = []
+        unavailable: list[str] = []
+
+        for horizon in HORIZONS:
+            if len(frame) < horizon + 1:
+                unavailable.append(f"{horizon}h (insufficient forecast weather rows)")
+                continue
+            try:
+                predictor = self.horizon_predictor(horizon)
+                features, _ = latest_feature_row(frame, horizon=horizon, base_time=base_time)
+                forecast = predictor.forecast(features, base_time.to_pydatetime())
+            except Exception as exc:
+                unavailable.append(f"{horizon}h ({exc})")
+                continue
+
+            result = aqi_from_pm25(forecast.predicted_pm25)
+            forecasts.append(
+                {
+                    "horizon_hours": horizon,
+                    "predicted_pm25": forecast.predicted_pm25,
+                    "base_time": forecast.base_time,
+                    "target_time": forecast.target_time,
+                    "model_version": forecast.model_version,
+                    "backend": forecast.backend,
+                    "aqi": result.aqi,
+                    "category": result.category,
+                    "band": result.band,
+                    "who_ratio": result.who_ratio,
+                    "model_metrics": dict(
+                        getattr(getattr(predictor, "metadata", None), "metrics", {}) or {}
+                    ),
+                }
+            )
+        return forecasts, unavailable
+
+    def forecast_timeline(
+        self, frame: pd.DataFrame, base_time: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Predicted PM2.5 for each future hour, for the timeline and planner.
+
+        Each future hour is produced by the nearest available horizon model whose
+        target is at or before that hour: hours 1-2 use the 1h model, hours 3-4
+        the 3h model, hours 5+ the 6h model. Because only a few horizons are
+        trained, a model's prediction is held forward for the hours between its
+        target and the next horizon's target. Every value therefore comes from a
+        real booster; ``horizon_hours`` records which one, and ``held_hours``
+        records how far the value was carried. Nothing is interpolated or invented.
+        """
+        available = sorted(self.available_horizons())
+        if not available:
+            return pd.DataFrame(columns=["time", "pm2_5", "horizon_hours", "step_hours", "held_hours"])
+
+        # One real prediction per trained horizon, at its true target time.
+        predictions: dict[int, float] = {}
+        for horizon in available:
+            if len(frame) < horizon + 1:
+                continue
+            try:
+                predictor = self.horizon_predictor(horizon)
+                features, _ = latest_feature_row(
+                    frame, horizon=horizon, base_time=base_time
+                )
+                predictions[horizon] = float(predictor.predict(features))
+            except Exception:
+                continue
+        if not predictions:
+            return pd.DataFrame(columns=["time", "pm2_5", "horizon_hours", "step_hours", "held_hours"])
+
+        rows: list[dict] = []
+        for step in range(1, FORECAST_HOURS + 1):
+            # Largest trained horizon at or before this hour; fall back to the
+            # smallest horizon for steps before the first target.
+            candidates = [h for h in predictions if h <= step]
+            horizon = max(candidates) if candidates else min(predictions)
+            rows.append(
+                {
+                    "time": base_time.to_pydatetime() + timedelta(hours=step),
+                    "pm2_5": predictions[horizon],
+                    "horizon_hours": horizon,
+                    "step_hours": step,
+                    "held_hours": step - horizon,
+                }
+            )
+        return pd.DataFrame(rows)
+
+    # ------------------------------------------------------------ event/spike
+    def spike(self, timeline: pd.DataFrame, current_pm25: float) -> dict:
+        """Detect a pollution spike in the predicted timeline."""
+        if timeline.empty:
+            return {
+                "spike_detected": False,
+                "kind": "none",
+                "severity": "none",
+                "expected_time": None,
+                "expected_change_percent": 0.0,
+                "peak_pm25": None,
+                "baseline_pm25": round(current_pm25, 2),
+                "horizon_hours": 0,
+                "confidence": 0.0,
+                "confidence_basis": "no_forecast",
+                "associated_signals": [],
+                "message": "No forecast timeline is available, so no spike can be assessed.",
+            }
+        event = detect_spike(
+            timeline,
+            baseline_value=current_pm25,
+            horizon_hours=int(timeline["step_hours"].max()),
+            calibration=self.calibration,
+        )
+        return event.to_dict()
+
+    # --------------------------------------------------------- national aqi
+    @staticmethod
+    def national_aqi(current: dict) -> dict:
+        """India CPCB National AQI from the current measured pollutants.
+
+        Computed across every pollutant the upstream source provides, so the
+        reported value reflects the worst of them rather than PM2.5 alone. The
+        pollutants the National AQI covers but Open-Meteo does not serve (CO,
+        SO2, NH3) are named in the response: without them the value can be lower
+        than the official National AQI, and saying so is the honest option.
+        """
+        result = national_aqi_from_pollutants(
+            pm2_5=current.get("pm2_5"),
+            pm10=current.get("pm10"),
+            nitrogen_dioxide=current.get("nitrogen_dioxide"),
+            ozone=current.get("ozone"),
+        )
+        return {
+            "aqi": result.aqi,
+            "category": result.category,
+            "dominant_pollutant": result.dominant_pollutant,
+            "band": result.band,
+            "who_ratio": result.who_ratio,
+            "sub_indices": [
+                {
+                    "pollutant": s.pollutant,
+                    "concentration": s.concentration,
+                    "sub_index": s.sub_index,
+                    "category": s.category,
+                    "band": s.band,
+                }
+                for s in result.sub_indices
+            ],
+            "health_guidance": result.health_guidance,
+            "missing_pollutants": list(NATIONAL_AQI_MISSING_POLLUTANTS),
+            "is_partial": result.is_partial,
+            "standard": "India CPCB National AQI",
+        }
 
     # --------------------------------------------------------------- output
     def build_forecast(self, location: Location) -> dict:
         """Produce the full response payload for one location."""
-        frame, source, notice = self._acquire(location)
-
+        frame, source, notice, base_time = self.acquire(
+            location, future_hours=FORECAST_HOURS
+        )
         try:
-            features, base_time = latest_feature_row(frame)
-        except ValueError as exc:
-            raise ForecastError(f"could not build features for {location.label}: {exc}") from exc
+            current = self.current_conditions(frame)
+        except ForecastError as exc:
+            raise ForecastError(
+                f"could not read current conditions for {location.label}: {exc}"
+            ) from exc
 
-        forecast = self.predictor.forecast(features, base_time.to_pydatetime())
+        forecasts, unavailable = self.predict_horizons(frame, base_time)
+        if not forecasts:
+            raise ForecastError(
+                "no forecast model could run for this location: "
+                + "; ".join(unavailable or ["no trained artifacts found"])
+            )
 
-        prediction = forecast.predicted_pm25
-        result = aqi_from_pm25(prediction)
-        alert = exposure_alert(prediction, horizon_hours=forecast.horizon_hours)
+        primary = forecasts[0]
+        alert = exposure_alert(
+            primary["predicted_pm25"], horizon_hours=primary["horizon_hours"]
+        )
+
+        timeline = self.forecast_timeline(frame, base_time)
+        spike = self.spike(timeline, current["pm2_5"])
 
         measured = frame[frame["pm2_5"].notna()].tail(HISTORY_HOURS)
         history = [
             {"time": row.time, "pm2_5": float(row.pm2_5), "predicted": False}
             for row in measured.itertuples()
         ]
-        history.append(
-            {"time": forecast.target_time, "pm2_5": float(prediction), "predicted": True}
-        )
-
-        metrics: dict[str, float] = {}
-        metadata = getattr(self.predictor, "metadata", None)
-        if metadata is not None:
-            metrics = dict(metadata.metrics)
+        for row in timeline.itertuples():
+            history.append({"time": row.time, "pm2_5": float(row.pm2_5), "predicted": True})
 
         return {
             "location": {
@@ -137,22 +412,46 @@ class ForecastService:
             "generated_at": datetime.now(timezone.utc),
             "source": source,
             "notice": notice,
+            "current": {
+                "time": current["time"],
+                "pm2_5": current["pm2_5"],
+                "pm10": current["pm10"],
+                "nitrogen_dioxide": current["nitrogen_dioxide"],
+                "ozone": current["ozone"],
+                "aqi": current["aqi"],
+                "category": current["category"],
+                "band": current["band"],
+                "who_ratio": current["who_ratio"],
+                "weather": {
+                    "temperature_2m": current["temperature_2m"],
+                    "relative_humidity_2m": current["relative_humidity_2m"],
+                    "wind_speed_10m": current["wind_speed_10m"],
+                    "wind_direction_10m": current["wind_direction_10m"],
+                    "surface_pressure": current["surface_pressure"],
+                    "precipitation": current["precipitation"],
+                },
+            },
             "forecast": {
-                "predicted_pm25": prediction,
-                "base_time": forecast.base_time,
-                "target_time": forecast.target_time,
-                "horizon_hours": forecast.horizon_hours,
-                "model_version": forecast.model_version,
-                "backend": forecast.backend,
-                "model_metrics": metrics,
+                "predicted_pm25": primary["predicted_pm25"],
+                "base_time": primary["base_time"],
+                "target_time": primary["target_time"],
+                "horizon_hours": primary["horizon_hours"],
+                "model_version": primary["model_version"],
+                "backend": primary["backend"],
+                "model_metrics": primary["model_metrics"],
             },
+            "forecasts": forecasts,
+            "unavailable_horizons": unavailable,
             "aqi": {
-                "aqi": result.aqi,
-                "category": result.category,
-                "band": result.band,
-                "who_ratio": result.who_ratio,
+                "aqi": primary["aqi"],
+                "category": primary["category"],
+                "band": primary["band"],
+                "who_ratio": primary["who_ratio"],
+                "standard": "US EPA AQI",
             },
+            "national_aqi": self.national_aqi(current),
             "alert": alert,
+            "spike": spike,
             "history": history,
         }
 
@@ -184,11 +483,13 @@ class ForecastService:
             "inference_backend": self.settings.inference_backend,
             "model_version": getattr(self.predictor, "model_version", None),
             "trained_at": metadata.trained_at,
+            "horizon_hours": metadata.horizon_hours,
             "feature_count": len(metadata.feature_columns),
             "train_rows": metadata.train_rows,
             "test_rows": metadata.test_rows,
             "metrics": metadata.metrics,
             "baseline_metrics": metadata.baseline_metrics,
+            "moving_average_metrics": metadata.moving_average_metrics,
             "train_window": metadata.train_window,
             "locations": metadata.locations,
             "data_source": metadata.data_source,
@@ -196,3 +497,29 @@ class ForecastService:
             "library_versions": metadata.library_versions,
             "top_features": top_features,
         }
+
+    def horizons_info(self) -> list[dict]:
+        """Model card for each horizon that has an artifact on disk."""
+        cards: list[dict] = []
+        for horizon in self.available_horizons():
+            try:
+                predictor = self.horizon_predictor(horizon)
+            except Exception:
+                continue
+            metadata = getattr(predictor, "metadata", None)
+            cards.append(
+                {
+                    "horizon_hours": horizon,
+                    "model_version": getattr(predictor, "model_version", None),
+                    "trained_at": getattr(metadata, "trained_at", None),
+                    "metrics": getattr(metadata, "metrics", {}) or {},
+                    "baseline_metrics": getattr(metadata, "baseline_metrics", {}) or {},
+                    "moving_average_metrics": getattr(
+                        metadata, "moving_average_metrics", {}
+                    )
+                    or {},
+                    "train_rows": getattr(metadata, "train_rows", None),
+                    "test_rows": getattr(metadata, "test_rows", None),
+                }
+            )
+        return cards
