@@ -78,7 +78,7 @@ export default function ForecastChart({ data }: { data: ForecastResponse }) {
               </linearGradient>
             </defs>
 
-            {/* EPA category bands, drawn as faint horizontal guides. */}
+            {/* India CPCB PM2.5 category bands, drawn as faint horizontal guides. */}
             {PM25_BANDS.map((band, index) => (
               <ReferenceArea
                 key={band.y}
@@ -156,7 +156,7 @@ export default function ForecastChart({ data }: { data: ForecastResponse }) {
 
       <p className="mt-2 text-xs text-slate-500">
         The dashed segment is the model's forecast, not a measurement. Shaded bands
-        mark US EPA PM2.5 categories.
+        mark India CPCB National AQI PM2.5 categories.
       </p>
     </section>
   )
