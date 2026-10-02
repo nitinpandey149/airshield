@@ -348,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
     # given size turning into a spike, per horizon. This is what lets the API
     # report a calibrated confidence instead of a rule-of-thumb number.
     from airshield_core.spike_calibration import (
+        BUCKET_LABELS,
         CALIBRATION_FILENAME,
         build_calibration,
     )
@@ -357,7 +358,11 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(f"spike calibration written to {path}")
     for horizon, buckets in calibration.horizons.items():
-        summary = ", ".join(f"{bucket}:{rate:.2f}" for bucket, rate in buckets.items())
+        summary = ", ".join(
+            f"{bucket}:{buckets[bucket]:.2f}"
+            for bucket in BUCKET_LABELS
+            if bucket in buckets
+        )
         print(f"  horizon {horizon}h  {summary}")
     return 0
 
