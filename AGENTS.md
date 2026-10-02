@@ -37,6 +37,7 @@ These are product requirements, not style preferences.
 core/src/airshield_core   domain logic; imports nothing from backend or frontend
 backend/app               HTTP layer; imports core
 frontend/src              UI; talks to backend only via src/lib/api.ts
+knowledge/                curated source text + manifest; index/ is a build output
 ml/sagemaker              real SageMaker train / deploy / serve
 infra/cloudformation      the AWS stack (S3, DynamoDB, SNS, Lambda, EventBridge)
 infra/lambda              ingest + spike-notification handlers (tested in infra/tests)
@@ -55,7 +56,34 @@ and reusable inside the SageMaker training container.
 - `spike_calibration.py` — empirical spike frequency learned during training.
 
 Backend services: `forecast_service`, `planning_service`, `route_service`,
-`aws_status`. Routers: `forecast`, `meta`, `planning`, `routes`, `aws`.
+`assistant_service`, `aws_status`. Routers: `forecast`, `meta`, `planning`,
+`routes`, `assistant`, `aws`.
+
+## The assistant (RAG)
+
+`core/src/airshield_core/rag/` holds a small retrieval pipeline:
+`documents` -> `chunking` -> `embeddings` -> `vectorstore` -> `retrieval` ->
+`context` -> `answering`, with `providers` for the language model.
+
+Rules that must not be broken:
+
+1. **The assistant never produces a number.** Forecasts, AQI and exposure come
+   from the model and the exposure engine. `rag/context.py` reads the *same*
+   payloads `/api/forecast` and `/api/plan` return — never recompute them.
+2. **Refusal over near-miss.** Below `rag_min_score`, retrieval returns nothing
+   and the answer is an explicit `insufficient_knowledge` refusal. Do not lower
+   the floor to make answers look better.
+3. **No silent fallback.** With no LLM configured the mode is `extractive`
+   (retrieved passages verbatim); when the LLM fails it is `llm_error` and the
+   sources are still returned. The embedder reports `is_semantic` honestly.
+4. **Every chunk cites a real source.** The manifest carries title, publisher,
+   URL and licence; `fetch_sources.py` records failures rather than inventing
+   text. `knowledge/sources/` is committed; `knowledge/index/` is not.
+5. **No medical claims.** It says "lower predicted exposure", never "safe".
+
+Endpoints: `POST /api/assistant/chat`, `GET /api/assistant/status`.
+Tests: `core/tests/test_rag.py`, `backend/tests/test_assistant_api.py` — both
+drive real retrieval, never stubbed hits.
 
 ## Commands
 
@@ -142,3 +170,9 @@ The image trains the model during build from the bundled dataset, so it works
 with no network at runtime. Trained artifacts are gitignored and therefore cannot
 be copied from the build context — do not try. `AIRSHIELD_SERVE_FRONTEND=true`
 mounts the built dashboard at `/`; `/api/*` routes always take precedence.
+
+`knowledge/` is copied in and the retrieval index is built during the image
+build, next to model training, so the assistant works offline too. If model2vec
+cannot be fetched at build time the builder falls back to the lexical embedder
+and reports it — it does not fail the build and it does not pretend to be
+semantic.
