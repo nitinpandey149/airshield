@@ -232,6 +232,19 @@ Open <http://localhost:5173>. To work fully offline:
 make train-offline  # trains on the bundled real dataset, no network needed
 ```
 
+### Run the built web app
+
+To serve the compiled dashboard and the API from a single origin (no dev server):
+
+```bash
+make web            # build the SPA, then serve it + /api on :8000
+make web-demo       # same, but from the labelled bundled dataset
+PORT=9000 make web  # pick a port
+```
+
+The backend mounts the built dashboard at `/`; `/api/*` routes always take
+precedence. This is the same wiring the Docker image uses.
+
 ### 3-minute demo flow
 
 1. Open the dashboard — the **Now** card answers *should I go outside right now?*

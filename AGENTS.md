@@ -65,6 +65,8 @@ make train            # fetch real data, train all horizons, calibrate spikes
 make train-offline    # train from bundled real dataset (no network)
 make api              # backend on :8000 (reload)
 make frontend-dev     # dashboard on :5173
+make web              # build + serve the web app and API on :8000
+make web-demo         # same, from the labelled bundled dataset
 make test             # core + backend + infra pytest
 make test-frontend    # tsc type check
 make check            # everything

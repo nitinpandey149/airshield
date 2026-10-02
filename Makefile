@@ -13,7 +13,7 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
-        frontend-build test test-core test-backend test-infra test-frontend lint clean \
+        frontend-build web web-demo test test-core test-backend test-infra test-frontend lint clean \
         docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke \
         infra-validate infra-deploy lambda-package template-sync check
 
@@ -54,6 +54,12 @@ frontend-dev: ## Run the Vite dev server on :5173
 
 frontend-build: ## Type-check and build the frontend
 	cd frontend && npm run build
+
+web: frontend-build ## Build the web app and serve it with the API on :8000
+	AIRSHIELD_SERVE_FRONTEND=true $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port $(or $(PORT),8000) --app-dir backend
+
+web-demo: frontend-build ## Same as `web`, but serves the labelled bundled dataset
+	AIRSHIELD_SERVE_FRONTEND=true AIRSHIELD_DATA_MODE=demo $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port $(or $(PORT),8000) --app-dir backend
 
 # --------------------------------------------------------------------- tests
 test: test-core test-backend test-infra ## Run all Python tests
