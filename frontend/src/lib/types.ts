@@ -300,3 +300,68 @@ export interface HorizonsResponse {
   available: number[]
   note: string
 }
+
+// --------------------------------------------------------------- assistant
+export type AssistantMode = 'llm' | 'extractive' | 'refusal' | 'llm_error'
+
+export interface AssistantSource {
+  doc_id: string
+  title: string
+  source: string
+  url: string
+  category: string
+  document_type: string
+  publication_date: string | null
+  licence: string
+}
+
+export interface AssistantRetrieved {
+  doc_id: string
+  title: string
+  source: string
+  url: string
+  score: number
+  ordinal: number
+}
+
+export interface AssistantChatResponse {
+  answer: string
+  sources: AssistantSource[]
+  retrieved_chunks: number
+  grounded: boolean
+  insufficient_knowledge: boolean
+  mode: AssistantMode
+  llm_available: boolean
+  llm_model: string
+  context_used: Record<string, unknown>
+  retrieved: AssistantRetrieved[]
+  notice: string | null
+  context_error?: string | null
+}
+
+export interface SuggestedQuestion {
+  id: string
+  label: string
+  question: string
+  needs_context: boolean
+}
+
+export interface AssistantStatusResponse {
+  enabled: boolean
+  ready: boolean
+  index: Record<string, unknown> | null
+  embedder_semantic: boolean | null
+  llm_available: boolean
+  llm_model: string | null
+  llm_detail: string | null
+  suggested_questions: SuggestedQuestion[]
+  notice: string | null
+  detail: string | null
+}
+
+export interface AssistantChatParams {
+  message: string
+  location_slug?: string
+  activity?: string
+  duration_minutes?: number
+}

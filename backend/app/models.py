@@ -282,3 +282,101 @@ class AwsStatusResponse(BaseModel):
     configured_components: list[str]
     credentials: dict
     note: str
+
+
+# --------------------------------------------------------------- assistant
+class AssistantContextIn(BaseModel):
+    """AirShield's own outputs, supplied by the client for the assistant.
+
+    These are the same payloads ``/api/forecast`` and ``/api/plan`` return. The
+    assistant explains them; it never recomputes or invents them.
+    """
+
+    location: str | None = None
+    forecast: dict | None = Field(
+        default=None, description="A /api/forecast payload (observed + predicted blocks)"
+    )
+    exposure: dict | None = Field(
+        default=None, description="A /api/plan payload (recommendation block)"
+    )
+    recommendation: dict | None = Field(
+        default=None, description="Alias for `exposure`, accepted for convenience"
+    )
+
+
+class AssistantChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    location_slug: str | None = Field(
+        default=None, description="Location to load live AirShield context for"
+    )
+    activity: str | None = Field(default=None, description="Activity for exposure context")
+    duration_minutes: int | None = Field(default=None, ge=1, le=600)
+    context: AssistantContextIn | None = Field(
+        default=None,
+        description="Client-supplied AirShield payloads; when absent, the server fetches them",
+    )
+
+
+class AssistantSourceOut(BaseModel):
+    """A citation. Only documents actually retrieved are ever returned."""
+
+    doc_id: str
+    title: str
+    source: str
+    url: str
+    category: str = ""
+    document_type: str = ""
+    publication_date: str | None = None
+    licence: str = ""
+
+
+class AssistantRetrievedOut(BaseModel):
+    """Auditable record of one retrieved passage."""
+
+    doc_id: str
+    title: str
+    source: str
+    url: str
+    score: float
+    ordinal: int
+
+
+class AssistantChatResponse(BaseModel):
+    answer: str
+    sources: list[AssistantSourceOut] = Field(default_factory=list)
+    retrieved_chunks: int = 0
+    #: True only when the answer is grounded in retrieved knowledge.
+    grounded: bool = False
+    #: True when the assistant declined for lack of verified information.
+    insufficient_knowledge: bool = False
+    #: "llm" when a model generated the prose, "extractive" when no model is
+    #: configured and the answer quotes the retrieved passages, "refusal" when
+    #: nothing relevant was found.
+    mode: str = "extractive"
+    llm_available: bool = False
+    llm_model: str = ""
+    #: The exact AirShield values supplied to the model, for auditability.
+    context_used: dict = Field(default_factory=dict)
+    retrieved: list[AssistantRetrievedOut] = Field(default_factory=list)
+    notice: str | None = None
+    context_error: str | None = None
+
+
+class SuggestedQuestion(BaseModel):
+    id: str
+    label: str
+    question: str
+    needs_context: bool = False
+
+
+class AssistantStatusResponse(BaseModel):
+    enabled: bool
+    ready: bool
+    index: dict | None = None
+    embedder_semantic: bool | None = None
+    llm_available: bool
+    llm_model: str | None = None
+    llm_detail: str | None = None
+    suggested_questions: list[SuggestedQuestion] = Field(default_factory=list)
+    notice: str | None = None
+    detail: str | None = None

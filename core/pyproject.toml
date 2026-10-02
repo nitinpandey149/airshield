@@ -21,6 +21,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Retrieval layer for the Ask AirShield assistant. Kept optional so the core
+# numerical pipeline installs without them.
+rag = [
+    "model2vec>=0.5",
+    "trafilatura>=2.0",
+    "pypdf>=5.0",
+]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",

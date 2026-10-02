@@ -6,6 +6,9 @@
  */
 import type {
   ActivityOption,
+  AssistantChatParams,
+  AssistantChatResponse,
+  AssistantStatusResponse,
   AwsArchitecture,
   AwsStatusResponse,
   ExposurePlanResponse,
@@ -101,4 +104,12 @@ export const api = {
   },
   awsStatus: () => request<AwsStatusResponse>('/api/aws/status'),
   awsArchitecture: () => request<AwsArchitecture>('/api/aws/architecture'),
+
+  assistantStatus: () => request<AssistantStatusResponse>('/api/assistant/status'),
+  assistantChat: (params: AssistantChatParams) =>
+    request<AssistantChatResponse>('/api/assistant/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    }),
 }

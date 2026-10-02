@@ -65,6 +65,24 @@ class Settings(BaseSettings):
     train_days: int = Field(default=60, alias="AIRSHIELD_TRAIN_DAYS")
     data_dir: str = Field(default="ml/data", alias="AIRSHIELD_DATA_DIR")
 
+    # ---- rag / assistant ---------------------------------------------------
+    # The assistant is on by default; it reports a degraded state if the vector
+    # index has not been built, rather than failing silently.
+    assistant_enabled: bool = Field(default=True, alias="AIRSHIELD_ASSISTANT_ENABLED")
+    knowledge_dir: str = Field(default="knowledge", alias="AIRSHIELD_KNOWLEDGE_DIR")
+    rag_index_dir: str = Field(default="knowledge/index", alias="AIRSHIELD_RAG_INDEX_DIR")
+    rag_top_k: int = Field(default=4, alias="AIRSHIELD_RAG_TOP_K")
+    rag_min_score: float = Field(default=0.22, alias="AIRSHIELD_RAG_MIN_SCORE")
+    rag_embedder: str = Field(default="semantic", alias="AIRSHIELD_RAG_EMBEDDER")
+
+    # Language model. With no base URL or model set, the assistant degrades to
+    # returning retrieved source excerpts instead of generating prose.
+    llm_base_url: str = Field(default="", alias="AIRSHIELD_LLM_BASE_URL")
+    llm_model: str = Field(default="", alias="AIRSHIELD_LLM_MODEL")
+    llm_api_key: str = Field(default="", alias="AIRSHIELD_LLM_API_KEY")
+    llm_timeout: float = Field(default=45.0, alias="AIRSHIELD_LLM_TIMEOUT")
+    llm_extra_headers: str = Field(default="", alias="AIRSHIELD_LLM_EXTRA_HEADERS")
+
     # ------------------------------------------------------------------ paths
     @property
     def artifact_path(self) -> Path:
@@ -74,6 +92,16 @@ class Settings(BaseSettings):
     @property
     def data_path(self) -> Path:
         p = Path(self.data_dir)
+        return p if p.is_absolute() else REPO_ROOT / p
+
+    @property
+    def knowledge_path(self) -> Path:
+        p = Path(self.knowledge_dir)
+        return p if p.is_absolute() else REPO_ROOT / p
+
+    @property
+    def rag_index_path(self) -> Path:
+        p = Path(self.rag_index_dir)
         return p if p.is_absolute() else REPO_ROOT / p
 
     @property

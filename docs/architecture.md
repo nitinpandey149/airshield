@@ -31,6 +31,9 @@ core/src/airshield_core      Domain logic. No FastAPI, no HTTP server, no UI.
   windows.py                 Safe-window optimizer over candidate windows
   routing.py                 Real route geometry, segmentation, per-segment data
   spike_calibration.py       Empirical spike confidence learned from training data
+  rag/                       Retrieval-grounded assistant (documents, chunking,
+                             embeddings, vector store, retrieval, context bridge,
+                             providers, answering)
   config.py                  Environment-backed settings
 
 backend/app                  HTTP layer. Thin: validation, orchestration, errors.
@@ -38,11 +41,13 @@ backend/app                  HTTP layer. Thin: validation, orchestration, errors
   services/forecast_service  Orchestrates the core pipeline
   services/planning_service  Exposure planner + safe-window optimization
   services/route_service     Route comparison + per-route exposure ranking
+  services/assistant_service Retrieval-grounded Q&A over the knowledge corpus
   services/aws_status        Reports which AWS services are really configured
   services/sagemaker_client  Amazon SageMaker runtime invocation
-  routers/                   forecast, meta, planning, routes, aws endpoints
+  routers/                   forecast, meta, planning, routes, assistant, aws endpoints
 
 frontend/src                 Presentation. Typed against the backend schema.
+knowledge/                   Curated source text + manifest; index is a build output
 ml/sagemaker                 Real SageMaker training, deployment, serving
 infra/cloudformation         The AWS stack (S3, DynamoDB, SNS, Lambda, EventBridge)
 infra/lambda                 Ingest and spike-notification handlers
@@ -229,6 +234,43 @@ only values AWS returned. `infra/tests/test_template_sync.py` fails if the
 embedded code drifts from `infra/lambda/*/handler.py`; regenerate with
 `make template-sync`.
 
+## The assistant layer
+
+`Ask AirShield` answers *why*. It is kept deliberately separate from the
+prediction path, because it must never be able to produce a number.
+
+```
+question ─► Retriever ─► passages + citations ─┐
+                                               ├─► GroundedAnswerer ─► answer
+/api/forecast + /api/plan ─► ForecastContext ──┘
+```
+
+- **`rag/documents.py`** loads `knowledge/manifest.json` plus the source text and
+  exposes each document with its title, publisher, URL, category and licence.
+- **`rag/chunking.py`** splits on paragraph boundaries with overlap, and every
+  chunk inherits the full provenance of its document.
+- **`rag/embeddings.py`** wraps model2vec. `build_embedder()` returns a hashing
+  fallback that reports `is_semantic = False` when the model cannot be loaded, so
+  a degraded embedder is visible rather than silent.
+- **`rag/vectorstore.py`** is a NumPy `.npz` plus JSON metadata: searchable,
+  diffable, and inspectable without a server.
+- **`rag/retrieval.py`** applies the relevance floor. Below it, nothing is
+  returned — this is what makes refusal possible.
+- **`rag/context.py`** (`ForecastContext`) is the bridge. It reads the *same*
+  dicts `/api/forecast` and `/api/plan` return — it accepts either a dict or a
+  pydantic model — and renders them under `OBSERVED` / `PREDICTED` /
+  `RECOMMENDATION` headings. There is no second source of truth for the numbers.
+- **`rag/providers.py`** talks to any OpenAI-compatible `/chat/completions`
+  endpoint. When none is configured it returns `NoLLMProvider`, which is a real
+  provider that reports itself as unavailable.
+- **`rag/answering.py`** assembles the prompt, enforces grounding, and decides
+  between `llm`, `extractive`, `llm_error` and `refusal`.
+
+The system prompt instructs the model to never invent a number, to use
+"lower predicted exposure" rather than "safe", and to make no medical claim. The
+API reports the mode, the citations and the exact context values, so a claim can
+always be traced back to its origin.
+
 ## Failure behaviour
 
 | Situation | Behaviour |
@@ -239,6 +281,11 @@ embedded code drifts from `infra/lambda/*/handler.py`; regenerate with
 | SageMaker endpoint not configured | `degraded` naming `SAGEMAKER_ENDPOINT_NAME` |
 | SageMaker returns an unknown shape | `SageMakerError`, never a guessed value |
 | Unknown location slug | `404` listing the valid slugs |
+| Knowledge index missing | `/api/assistant/status` `ready=false`; chat `503` naming `make knowledge` |
+| Assistant disabled by config | chat `503` saying so |
+| Nothing relevant retrieved | `insufficient_knowledge=true`, an explicit refusal, no sources |
+| Language model configured but failing | `mode="llm_error"`; retrieved sources still returned, nothing fabricated |
+| No language model configured | `mode="extractive"`; retrieved passages returned verbatim |
 
 `backend/tests/test_honesty.py` asserts each row of this table.
 
@@ -261,3 +308,7 @@ gitignored while `.env.example` documents every key.
   cannot be mistaken for a live one.
 - `ModelCard` renders the real held-out metrics next to the persistence baseline,
   expanding to training window, feature importances and library versions.
+- `AskAirShield` shows the assistant's real readiness before the first question
+  (index present, embedder, whether a model is configured), disables itself with
+  an explanation when the index is missing, and renders each answer with its mode
+  and its citations. It never presents an ungrounded answer as grounded.

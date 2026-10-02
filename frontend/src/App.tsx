@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import AqiScale from './components/AqiScale'
+import AskAirShield from './components/AskAirShield'
 import AwsPanel from './components/AwsPanel'
 import ConditionsCard from './components/ConditionsCard'
 import ExposurePlanner from './components/ExposurePlanner'
@@ -202,7 +203,10 @@ export default function App() {
             {/* 4. When should I go out? */}
             <ExposurePlanner slug={slug} activities={activities} />
 
-            {/* 5. Where should I go? */}
+            {/* 5. Why this recommendation? Grounded explanation + knowledge Q&A. */}
+            <AskAirShield slug={slug} />
+
+            {/* 6. Where should I go? */}
             <RouteComparison />
 
             <div className="grid gap-5 lg:grid-cols-2">

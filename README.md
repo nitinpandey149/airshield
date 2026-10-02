@@ -41,6 +41,10 @@ You pick a city. AirShield Pulse:
    sampling predicted PM2.5 along each path and ranking them by exposure.
 7. Shows all of it in a React dashboard that keeps measured and predicted data
    visually distinct and every number traceable.
+8. Answers **"why?"** through **Ask AirShield**, a retrieval-grounded assistant
+   that explains AirShield's own outputs and retrieves environmental knowledge
+   from a curated corpus of WHO, US EPA and AirNow material — with citations, and
+   with an explicit refusal when the corpus cannot support an answer.
 
 The model is served either from a local artifact or from a **real Amazon
 SageMaker AI endpoint** — the only AWS AI/ML service used in this project — and
@@ -63,6 +67,7 @@ This project is deliberately explicit about what is real and what is not.
 | No medical-safety claims | Routes and windows are described as **lower predicted exposure**, never safe. |
 | No causal claims | Spike signals are labelled "possible contributing signals", never proven causes. |
 | Demo data is always labelled | Demo responses carry `source.mode: "demo"` and a `DEMO DATA` notice, shown in a banner that is never behind a toggle. |
+| No invented answers | The assistant answers only from retrieved passages and from AirShield's own API outputs, and returns those sources. With nothing relevant retrieved it refuses instead of guessing. |
 
 The suite includes a dedicated [honesty test module](backend/tests/test_honesty.py)
 asserting that a simulated upstream outage produces a `503` rather than fabricated
@@ -91,6 +96,7 @@ Open-Meteo, not synthetic noise. It simply is not the current hour.
 | **Spike card** | Is a spike coming, how big, how confident? | `SpikeCard`, `airshield_core.events` |
 | **Exposure planner** | When should I go out? | `ExposurePlanner`, `/api/plan/{slug}` |
 | **Route comparison** | Where should I go? | `RouteComparison`, `/api/routes/compare` |
+| **Ask AirShield** | Why? What is PM2.5? Is this grounded? | `AskAirShield`, `/api/assistant/chat` |
 | **Provenance + model + horizons + AWS** | Can I trust and trace this? | `ProvenancePanel`, `ModelCard`, `HorizonsCard`, `AwsPanel` |
 
 ### Exposure model
@@ -118,6 +124,86 @@ Confidence is calibrated at training time: `airshield_core.spike_calibration`
 measures how often each PM2.5 trend bucket historically led to a rise, and stores
 it in the artifact. When calibration is unavailable the API falls back to a
 transparent rule-based estimate and labels the basis accordingly.
+
+---
+
+## Ask AirShield — grounded explanations
+
+The dashboard answers *what* and *when*. **Ask AirShield** answers *why*, without
+ever inventing anything.
+
+It is a retrieval-augmented assistant over a small, curated corpus of genuine
+environmental-health material, and it is deliberately narrow:
+
+- **What it explains.** The numbers AirShield already produced — the current and
+  predicted PM2.5, the AQI, the spike assessment, and the recommended window for
+  your activity. Those values are passed to the model in a labelled
+  `OBSERVED` / `PREDICTED` / `RECOMMENDATION` block taken straight from
+  `/api/forecast` and `/api/plan`.
+- **What it knows.** `knowledge/` holds source text fetched from the **World
+  Health Organization**, **US EPA**, **AirNow** and the **American Lung
+  Association**. Every passage carries its title, publisher, URL, category and
+  licence.
+- **What it refuses.** If retrieval finds nothing above the relevance floor, the
+  assistant returns *"I don't have enough verified information…"* rather than the
+  least-bad match. Airtight refusals matter more than fluent answers here.
+- **How it runs without a model.** With no language model configured the
+  assistant returns the retrieved passages verbatim (`mode: "extractive"`). It
+  never falls back to writing its own prose, and the API says which mode ran.
+
+Every response states whether it was grounded, how many passages were retrieved,
+which sources were used, and the exact AirShield values that were supplied.
+
+### Retrieval
+
+`airshield_core.rag` is a small, dependency-light pipeline: chunk → embed →
+search → ground → answer.
+
+| Piece | Choice | Why |
+| --- | --- | --- |
+| Embeddings | [model2vec](https://github.com/MinishLab/model2vec) (256-d static) | CPU-only, no torch, fast to load; good enough for a corpus this size |
+| Fallback | hashing embedder | Keeps the assistant usable with no model download; labelled as non-semantic |
+| Store | NumPy `.npz` + JSON metadata | Auditable, diffable, no server to run |
+| Provider | OpenAI-compatible `/chat/completions` | Works with a managed endpoint, vLLM, Ollama or llama.cpp |
+
+The corpus is committed so the assistant works offline; the vector index is a
+build output.
+
+```bash
+make knowledge-fetch    # refresh source text from the official sources
+make knowledge          # rebuild the retrieval index
+make knowledge-offline  # rebuild the index from already-fetched sources
+```
+
+### Example
+
+```bash
+curl -s localhost:8000/api/assistant/chat -H 'Content-Type: application/json' -d '{
+  "message": "Why are you recommending this time window?",
+  "location_slug": "berlin", "activity": "running", "duration_minutes": 45
+}'
+```
+
+```json
+{
+  "answer": "...",
+  "grounded": true,
+  "mode": "llm",
+  "retrieved_chunks": 4,
+  "context_used": {
+    "observed_pm25": 9.5, "predicted_pm25": 4.38, "forecast_horizon_hours": 1,
+    "recommended_window": "17:00-17:45", "relative_reduction_percent": 42.2
+  },
+  "sources": [
+    { "title": "Air Quality Index (AQI) Basics", "source": "US EPA AirNow",
+      "url": "https://www.airnow.gov/aqi/aqi-basics/" }
+  ]
+}
+```
+
+The assistant does not predict. Forecasts come from the XGBoost model, AQI from
+`airshield_core.aqi`, and exposure from the exposure engine. It is not medical
+advice.
 
 ---
 
@@ -253,7 +339,9 @@ precedence. This is the same wiring the Docker image uses.
 4. In the **exposure planner**, pick *Running — 45 minutes* → best window, expected
    exposure, and the relative reduction versus the worst window.
 5. In **route comparison**, compare alternatives → the lowest-exposure route is marked.
-6. Scroll to the **horizons**, **model** and **AWS architecture** cards for provenance.
+6. Ask **Ask AirShield** *"Why are you recommending this time window?"* → a grounded
+   answer citing WHO/EPA/AirNow sources, built on the exact numbers above.
+7. Scroll to the **horizons**, **model** and **AWS architecture** cards for provenance.
 
 ### Docker
 
@@ -278,6 +366,8 @@ make docker-run      # serves the API and the built dashboard on :8000
 | `GET` | `/api/forecast/{slug}` | Current + multi-horizon forecast + AQI + alert + spike + history |
 | `GET` | `/api/plan/{slug}` | Lowest-exposure window for an activity and duration |
 | `GET` | `/api/routes/compare` | Route alternatives ranked by predicted exposure |
+| `POST` | `/api/assistant/chat` | Grounded answer + citations, or an explicit refusal |
+| `GET` | `/api/assistant/status` | Assistant readiness: index, embedder, LLM |
 | `GET` | `/api/aws/status` | Which AWS services are configured (real, not assumed) |
 | `GET` | `/api/aws/architecture` | The intended AWS pipeline, as data |
 
@@ -390,8 +480,8 @@ The frontend's provenance panel shows `SageMaker AI` or `local` per prediction.
 
 ```bash
 make test           # all Python tests
-make test-core      # core library (120)
-make test-backend   # API + honesty suite (49)
+make test-core      # core library incl. RAG (150)
+make test-backend   # API + honesty + assistant suite (62)
 make test-frontend  # TypeScript type check
 make check          # everything
 ```
@@ -441,6 +531,7 @@ committed**; `.env` is gitignored and `.env.example` documents every key.
 **Frontend** React 18 · TypeScript (strict) · Vite · Tailwind CSS · Recharts
 **Backend** Python · FastAPI · Pydantic v2 · uvicorn
 **ML** pandas · scikit-learn · XGBoost · **Amazon SageMaker AI**
+**Assistant** model2vec embeddings · NumPy vector store · OpenAI-compatible LLM (optional)
 **Data** Open-Meteo air quality + weather (CC BY 4.0) · OpenStreetMap routing
 **AWS** SageMaker AI · Lambda · S3 · DynamoDB · EventBridge · SNS · CloudWatch
 **Tooling** pytest · Docker (multi-stage) · Make
@@ -461,6 +552,7 @@ committed**; `.env` is gitignored and `.env.example` documents every key.
 - [x] Route comparison with real geometry and per-segment exposure
 - [x] AWS stack (S3, DynamoDB, Lambda, EventBridge, SNS) as CloudFormation
 - [x] SageMaker training, deployment, and inference handler
+- [x] Retrieval-grounded assistant over a curated WHO/EPA/AirNow corpus
 - [ ] Deploy to AWS (needs credentials — deliberately not done)
 - [ ] Geocoding so any city can be searched, not just six
 - [ ] Persisted user preferences and saved plans in DynamoDB

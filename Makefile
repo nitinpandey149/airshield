@@ -15,7 +15,8 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
         frontend-build web web-demo test test-core test-backend test-infra test-frontend lint clean \
         docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke \
-        infra-validate infra-deploy lambda-package template-sync check
+        infra-validate infra-deploy lambda-package template-sync check \
+        knowledge knowledge-fetch knowledge-offline
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -44,6 +45,16 @@ train: ## Train the XGBoost PM2.5 model and write ml/artifacts
 train-offline: ## Retrain from the bundled dataset (no network required)
 	$(PY) -m airshield_core.train --out ml/artifacts --rounds 400 \
 		--from-csv ml/data/demo/demo_hourly.csv
+
+# --------------------------------------------------------------- knowledge
+knowledge-fetch: ## Fetch/refresh the knowledge base source text from official sources
+	$(PY) knowledge/fetch_sources.py
+
+knowledge: knowledge-fetch ## Build the retrieval index for Ask AirShield
+	$(PY) knowledge/build_index.py
+
+knowledge-offline: ## Build the retrieval index from the already-fetched sources
+	$(PY) knowledge/build_index.py
 
 # ---------------------------------------------------------------- run locally
 api: ## Run the FastAPI backend with autoreload on :8000

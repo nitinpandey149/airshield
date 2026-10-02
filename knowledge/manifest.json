@@ -1,0 +1,153 @@
+{
+  "description": "AirShield Pulse knowledge base manifest. Every entry is a real, citable document from an official agency or peer-reviewed source. The ingestion pipeline fetches these URLs, extracts the text verbatim, and chunks it. Nothing in the corpus is generated.",
+  "categories": [
+    "air_quality",
+    "pollutants",
+    "exposure",
+    "outdoor_activity",
+    "AQI",
+    "environmental_guidance"
+  ],
+  "documents": [
+    {
+      "id": "epa-pm-basics",
+      "title": "Particulate Matter (PM) Basics",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/pm-pollution/particulate-matter-pm-basics",
+      "document_type": "guidance",
+      "category": "pollutants",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "epa-pm-health-effects",
+      "title": "Health and Environmental Effects of Particulate Matter (PM)",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/pm-pollution/health-and-environmental-effects-particulate-matter-pm",
+      "document_type": "guidance",
+      "category": "exposure",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "epa-aqi-calculation",
+      "title": "How is the AQI calculated?",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/outdoor-air-quality-data/how-aqi-calculated",
+      "document_type": "technical",
+      "category": "AQI",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "airnow-aqi-basics",
+      "title": "Air Quality Index (AQI) Basics",
+      "source": "US EPA AirNow",
+      "url": "https://www.airnow.gov/aqi/aqi-basics/",
+      "document_type": "guidance",
+      "category": "AQI",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "who-ambient-air-quality",
+      "title": "Ambient (outdoor) air pollution - Fact sheet",
+      "source": "World Health Organization",
+      "url": "https://www.who.int/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health",
+      "document_type": "guidance",
+      "category": "air_quality",
+      "publication_date": "2024-10-24",
+      "licence": "WHO - reproduced for non-commercial research with attribution"
+    },
+    {
+      "id": "who-physical-activity",
+      "title": "Physical activity - Fact sheet",
+      "source": "World Health Organization",
+      "url": "https://www.who.int/news-room/fact-sheets/detail/physical-activity",
+      "document_type": "guidance",
+      "category": "outdoor_activity",
+      "publication_date": "2024-06-26",
+      "licence": "WHO - reproduced for non-commercial research with attribution"
+    },
+    {
+      "id": "epa-ozone-basics",
+      "title": "Ground-level Ozone Basics",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/ground-level-ozone-pollution/ground-level-ozone-basics",
+      "document_type": "guidance",
+      "category": "pollutants",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "epa-no2-basics",
+      "title": "Basic Information about NO2",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/no2-pollution/basic-information-about-no2",
+      "document_type": "guidance",
+      "category": "pollutants",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "epa-particulate-matter-size",
+      "title": "Particle Pollution and Your Health (particle size and deposition)",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/sites/default/files/2014-05/documents/huff-particle.pdf",
+      "document_type": "technical",
+      "category": "pollutants",
+      "publication_date": "2014-05-01",
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "who-global-air-quality-guidelines-2021",
+      "title": "WHO global air quality guidelines: particulate matter, ozone, nitrogen dioxide, sulfur dioxide and carbon monoxide",
+      "source": "World Health Organization",
+      "url": "https://www.who.int/publications/i/item/9789240034228",
+      "document_type": "guidance",
+      "category": "environmental_guidance",
+      "publication_date": "2021-09-22",
+      "licence": "WHO - reproduced for non-commercial research with attribution"
+    },
+    {
+      "id": "lung-association-particle-pollution",
+      "title": "Particle Pollution",
+      "source": "American Lung Association",
+      "url": "https://www.lung.org/clean-air/outdoors/what-makes-air-unhealthy/particle-pollution",
+      "document_type": "guidance",
+      "category": "exposure",
+      "publication_date": null,
+      "licence": "American Lung Association - reproduced for non-commercial research with attribution"
+    },
+    {
+      "id": "who-air-quality-and-health",
+      "title": "Air quality, energy and health",
+      "source": "World Health Organization",
+      "url": "https://www.who.int/teams/environment-climate-change-and-health/air-quality-and-health",
+      "document_type": "guidance",
+      "category": "air_quality",
+      "publication_date": null,
+      "licence": "WHO - reproduced for non-commercial research with attribution"
+    },
+    {
+      "id": "epa-iaq-vocs",
+      "title": "What are Volatile Organic Compounds (VOCs)?",
+      "source": "US Environmental Protection Agency",
+      "url": "https://www.epa.gov/indoor-air-quality-iaq/what-are-volatile-organic-compounds-vocs",
+      "document_type": "guidance",
+      "category": "pollutants",
+      "publication_date": null,
+      "licence": "US EPA public domain / US Government work"
+    },
+    {
+      "id": "epa-aqi-technical-assistance-document",
+      "title": "Technical Assistance Document for the Reporting of Daily Air Quality - the Air Quality Index (AQI)",
+      "source": "US Environmental Protection Agency (via AirNow)",
+      "url": "https://www.airnow.gov/sites/default/files/2020-05/aqi-technical-assistance-document-sept2018.pdf",
+      "document_type": "technical",
+      "category": "AQI",
+      "publication_date": "2018-09-01",
+      "licence": "US EPA public domain / US Government work"
+    }
+  ]
+}

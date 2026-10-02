@@ -32,6 +32,13 @@ ml/artifacts/*.ubj
 ml/artifacts/*.tar.gz
 !ml/artifacts/.gitkeep
 
+# ---- Knowledge base --------------------------------------------------------
+# The extracted source text is committed: it is the reviewable corpus, and
+# keeping it means the assistant works offline. The vector index is a build
+# output of that corpus (regenerate with: make knowledge).
+knowledge/index/
+knowledge/fetch_report.json
+
 # ---- Node / frontend -------------------------------------------------------
 node_modules/
 frontend/dist/
