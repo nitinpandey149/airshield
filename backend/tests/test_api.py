@@ -11,9 +11,11 @@ def test_root_reports_configuration(client) -> None:
     response = client.get("/")
     assert response.status_code == 200
     body = response.json()
-    assert body["name"] == "AirShield API"
+    assert body["name"] == "AirShield Pulse API"
     assert body["ml_service"] == "Amazon SageMaker AI (XGBoost)"
     assert "forecast" in body["endpoints"]
+    assert "plan" in body["endpoints"]
+    assert "routes" in body["endpoints"]
 
 
 def test_health_reports_ok_with_a_model(client) -> None:
@@ -46,6 +48,21 @@ def test_forecast_returns_a_real_prediction(client) -> None:
     assert body["forecast"]["backend"] == "local"
 
 
+def test_forecast_reports_only_trained_horizons(client) -> None:
+    """Horizons are reported per model; none is claimed without an artifact."""
+    body = client.get("/api/forecast/berlin").json()
+    horizons = [f["horizon_hours"] for f in body["forecasts"]]
+    assert horizons, "at least the 1h horizon should be present"
+    assert horizons == sorted(horizons)
+    # Every reported horizon has its own model version and AQI.
+    for entry in body["forecasts"]:
+        assert entry["model_version"]
+        assert 0 <= entry["aqi"] <= 500
+    # Anything missing is named explicitly, with a reason.
+    for missing in body["unavailable_horizons"]:
+        assert "h" in missing
+
+
 def test_forecast_reports_real_training_metrics(client) -> None:
     """The metrics in the response must be the measured ones, not placeholders."""
     body = client.get("/api/forecast/berlin").json()
@@ -61,6 +78,29 @@ def test_prediction_targets_the_next_hour(client) -> None:
     base = datetime.fromisoformat(body["forecast"]["base_time"].replace("Z", "+00:00"))
     target = datetime.fromisoformat(body["forecast"]["target_time"].replace("Z", "+00:00"))
     assert (target - base).total_seconds() == 3600
+
+
+def test_each_horizon_targets_its_own_hour(client) -> None:
+    body = client.get("/api/forecast/berlin").json()
+    for entry in body["forecasts"]:
+        base = datetime.fromisoformat(entry["base_time"].replace("Z", "+00:00"))
+        target = datetime.fromisoformat(entry["target_time"].replace("Z", "+00:00"))
+        assert (target - base).total_seconds() == 3600 * entry["horizon_hours"]
+
+
+def test_forecast_includes_current_conditions(client) -> None:
+    body = client.get("/api/forecast/berlin").json()
+    current = body["current"]
+    assert current["pm2_5"] >= 0
+    assert 0 <= current["aqi"] <= 500
+    assert current["time"]
+    # Current AQI must be derived from the current PM2.5 - one source of truth.
+    from airshield_core.aqi import aqi_from_pm25
+
+    expected = aqi_from_pm25(current["pm2_5"])
+    assert current["aqi"] == expected.aqi
+    assert current["category"] == expected.category
+    assert current["weather"] is not None
 
 
 def test_forecast_includes_alert_and_aqi(client) -> None:
@@ -91,9 +131,13 @@ def test_history_ends_with_the_prediction(client) -> None:
     body = client.get("/api/forecast/berlin").json()
     history = body["history"]
     assert len(history) > 10
-    assert history[-1]["predicted"] is True
-    assert history[-1]["pm2_5"] == pytest.approx(body["forecast"]["predicted_pm25"])
-    assert all(point["predicted"] is False for point in history[:-1])
+    predicted = [p for p in history if p["predicted"]]
+    measured = [p for p in history if not p["predicted"]]
+    assert predicted and measured
+    # The first predicted point is the 1-hour forecast, matching `forecast`.
+    assert predicted[0]["pm2_5"] == pytest.approx(body["forecast"]["predicted_pm25"])
+    # Measured points must all precede predicted points.
+    assert history.index(measured[-1]) < history.index(predicted[0])
 
 
 def test_demo_mode_is_clearly_labelled(client) -> None:
@@ -103,6 +147,17 @@ def test_demo_mode_is_clearly_labelled(client) -> None:
     assert body["notice"] and "DEMO MODE" in body["notice"]
     assert body["source"]["is_synthetic"] is False
     assert body["source"]["licence"]
+
+
+def test_spike_block_is_present_and_honest(client) -> None:
+    body = client.get("/api/forecast/berlin").json()
+    spike = body["spike"]
+    assert spike is not None
+    assert 0.0 <= spike["confidence"] <= 1.0
+    assert spike["confidence_basis"]
+    # Associated signals, when present, must carry the non-causal disclaimer.
+    if spike["associated_signals"]:
+        assert "not proven causes" in spike["signal_disclaimer"]
 
 
 def test_all_locations_produce_a_forecast(client) -> None:

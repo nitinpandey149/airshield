@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  AirShield Pulse - AWS infrastructure. Every resource here has a specific job
+  in the forecast or notification pipeline; none is decorative.
+
+  Forecast pipeline:
+    EventBridge schedule -> ingest Lambda -> S3 (training data) + DynamoDB (state)
+    SageMaker AI (training + inference endpoint) -> FastAPI service
+
+  Notification pipeline:
+    EventBridge schedule -> spike Lambda -> SNS topic -> subscribers
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  LocationSlug:
+    Type: String
+    Default: berlin
+    Description: Location the scheduled ingestion samples.
+  Latitude:
+    Type: Number
+    Default: 52.52
+  Longitude:
+    Type: Number
+    Default: 13.405
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Optional email to subscribe to spike notifications.
+  ApiBaseUrl:
+    Type: String
+    Default: "http://localhost:8000"
+    Description: Base URL of the deployed AirShield Pulse FastAPI service.
+
+Conditions:
+  HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+
+Resources:
+  # ---------------------------------------------------------------- storage
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "airshield-pulse-${Environment}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-samples
+            Status: Enabled
+            ExpirationInDays: 400
+            Prefix: samples/
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # --------------------------------------------------------------- state
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "airshield-pulse-${Environment}-state"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+
+  # ----------------------------------------------------------- notifications
+  SpikeTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "airshield-pulse-${Environment}-spikes"
+      DisplayName: AirShield Pulse pollution spikes
+
+  SpikeEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasEmail
+    Properties:
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+      TopicArn: !Ref SpikeTopic
+
+  # ------------------------------------------------------------ ingest lambda
+  IngestRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: airshield-ingest
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject]
+                Resource: !Sub "${DataBucket.Arn}/samples/*"
+              - Effect: Allow
+                Action: [dynamodb:PutItem]
+                Resource: !GetAtt StateTable.Arn
+
+  IngestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "airshield-pulse-${Environment}-ingest"
+      Runtime: python3.12
+      Handler: handler.handler
+      Timeout: 60
+      MemorySize: 256
+      Role: !GetAtt IngestRole.Arn
+      Environment:
+        Variables:
+          AIRSHIELD_BUCKET: !Ref DataBucket
+          AIRSHIELD_TABLE: !Ref StateTable
+          AIRSHIELD_LATITUDE: !Ref Latitude
+          AIRSHIELD_LONGITUDE: !Ref Longitude
+          AIRSHIELD_LOCATION_SLUG: !Ref LocationSlug
+      Code:
+        ZipFile: |
+          # Placeholder. Deploy the real handler with:
+          #   aws lambda update-function-code --function-name <name> \
+          #     --zip-file fileb://infra/lambda/ingest.zip
+          def handler(event, context):
+              raise RuntimeError("deploy the real handler from infra/lambda/ingest")
+
+  # ------------------------------------------------------------- spike lambda
+  SpikeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: airshield-spike
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [sns:Publish]
+                Resource: !Ref SpikeTopic
+              - Effect: Allow
+                Action: [dynamodb:PutItem, dynamodb:Query]
+                Resource: !GetAtt StateTable.Arn
+              - Effect: Allow
+                Action: [sagemaker:InvokeEndpoint]
+                Resource: !Sub "arn:${AWS::Partition}:sagemaker:${AWS::Region}:${AWS::AccountId}:endpoint/*"
+
+  SpikeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "airshield-pulse-${Environment}-spike"
+      Runtime: python3.12
+      Handler: handler.handler
+      Timeout: 60
+      MemorySize: 256
+      Role: !GetAtt SpikeRole.Arn
+      Environment:
+        Variables:
+          AIRSHIELD_TABLE: !Ref StateTable
+          AIRSHIELD_SNS_TOPIC_ARN: !Ref SpikeTopic
+          AIRSHIELD_LOCATION_SLUG: !Ref LocationSlug
+          AIRSHIELD_API_BASE_URL: !Ref ApiBaseUrl
+      Code:
+        ZipFile: |
+          # Placeholder. Deploy the real handler with:
+          #   aws lambda update-function-code --function-name <name> \
+          #     --zip-file fileb://infra/lambda/spike.zip
+          def handler(event, context):
+              raise RuntimeError("deploy the real handler from infra/lambda/spike")
+
+  # -------------------------------------------------------------- schedules
+  IngestSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "airshield-pulse-${Environment}-ingest"
+      Description: Ingest Open-Meteo observations hourly
+      ScheduleExpression: "rate(1 hour)"
+      State: ENABLED
+      Targets:
+        - Id: ingest
+          Arn: !GetAtt IngestFunction.Arn
+
+  IngestPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref IngestFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt IngestSchedule.Arn
+
+  SpikeSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "airshield-pulse-${Environment}-spike"
+      Description: Check the forecast for a pollution spike every 30 minutes
+      ScheduleExpression: "rate(30 minutes)"
+      State: ENABLED
+      Targets:
+        - Id: spike
+          Arn: !GetAtt SpikeFunction.Arn
+
+  SpikePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SpikeFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SpikeSchedule.Arn
+
+Outputs:
+  DataBucketName:
+    Value: !Ref DataBucket
+    Description: Set AIRSHIELD_S3_BUCKET to this value
+  StateTableName:
+    Value: !Ref StateTable
+    Description: Set AIRSHIELD_DYNAMODB_TABLE to this value
+  SpikeTopicArn:
+    Value: !Ref SpikeTopic
+    Description: Set AIRSHIELD_SNS_TOPIC_ARN to this value
+  IngestFunctionName:
+    Value: !Ref IngestFunction
+    Description: Set AIRSHIELD_LAMBDA_FUNCTION to this value
+  IngestScheduleName:
+    Value: !Ref IngestSchedule
+    Description: Set AIRSHIELD_EVENTBRIDGE_SCHEDULE to this value

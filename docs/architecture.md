@@ -26,16 +26,26 @@ core/src/airshield_core      Domain logic. No FastAPI, no HTTP server, no UI.
   train.py                   Training + metric/baseline reporting + artifact I/O
   predict.py                 Artifact loading and inference
   aqi.py                     AQI conversion and alert rules
+  exposure.py                Exposure engine (activity x duration x location)
+  events.py                  Sharp / sustained pollution spike detection
+  windows.py                 Safe-window optimizer over candidate windows
+  routing.py                 Real route geometry, segmentation, per-segment data
+  spike_calibration.py       Empirical spike confidence learned from training data
   config.py                  Environment-backed settings
 
 backend/app                  HTTP layer. Thin: validation, orchestration, errors.
   deps.py                    Predictor/service lifecycle (built once, reused)
   services/forecast_service  Orchestrates the core pipeline
+  services/planning_service  Exposure planner + safe-window optimization
+  services/route_service     Route comparison + per-route exposure ranking
+  services/aws_status        Reports which AWS services are really configured
   services/sagemaker_client  Amazon SageMaker runtime invocation
-  routers/                   forecast + meta endpoints
+  routers/                   forecast, meta, planning, routes, aws endpoints
 
 frontend/src                 Presentation. Typed against the backend schema.
 ml/sagemaker                 Real SageMaker training, deployment, serving
+infra/cloudformation         The AWS stack (S3, DynamoDB, SNS, Lambda, EventBridge)
+infra/lambda                 Ingest and spike-notification handlers
 ```
 
 The dependency direction is strictly one-way: `frontend -> backend -> core`.
@@ -58,6 +68,64 @@ The dependency direction is strictly one-way: `frontend -> backend -> core`.
    sensitive-group advice.
 5. **Assemble** — the response carries location, source, notice, forecast, aqi,
    alert and the history series (with the predicted point appended and flagged).
+
+## The Pulse layer
+
+AirShield Pulse adds four domain modules on top of the original forecast
+pipeline. Each is pure, testable core logic, reused by both the API and the
+tests.
+
+### `exposure.py` — exposure engine
+
+```
+Exposure = concentration x duration x activity intensity x location factor
+```
+
+Activity intensity multipliers are engineering approximations for **relative
+comparison**, not medical measurements, and every response that contains an
+exposure score repeats that caveat. `compare_exposures()` implements the
+relative-reduction formula `(worst - candidate) / worst x 100`, which is what the
+UI renders as "approximately N% lower predicted exposure".
+
+### `events.py` — pollution event detector
+
+Two event kinds:
+
+- **sharp** — a large step between adjacent forecast hours.
+- **sustained** — a monotonic climb across the forecast horizon.
+
+Confidence comes from `spike_calibration.py`, which is fit at training time by
+measuring, for each PM2.5 trend bucket, how often that bucket was followed by a
+rise in the held-out data. When no calibration artifact exists, `events.py` falls
+back to a transparent rule-based estimate and reports
+`confidence_basis="rule_based"` so the UI can say exactly how the number was
+produced. Confidence is never invented.
+
+Associated signals (wind, pressure, NO2, O3, temperature) are returned as
+**possible contributing signals**, and the response carries an explicit
+disclaimer that they are associated conditions, not proven causes.
+
+### `windows.py` — safe-window optimizer
+
+Given a location, activity, duration and preferred time range, it enumerates
+candidate start times, scores each one over its **entire duration** (not the
+single lowest PM2.5 hour), and returns the best, second-best and highest-exposure
+windows with the relative reduction between them.
+
+### `routing.py` — route exposure
+
+Route geometry comes from a real OpenStreetMap engine (Valhalla, with OSRM as a
+fallback). When the engine returns fewer alternatives than requested, genuine
+via-point detours are requested from the same engine so alternatives are real,
+never invented. Each route is split into equal-distance segments; predicted PM2.5
+is sampled at each segment midpoint and aggregated:
+
+```
+Route exposure = sum over segments ( segment PM2.5 x segment duration x activity factor )
+```
+
+If no engine answers, `RoutingError` propagates and the API reports the feature
+as unavailable.
 
 ## Feature engineering and leakage
 
@@ -120,6 +188,38 @@ Only Amazon SageMaker AI is used as an AWS AI/ML service.
 `AIRSHIELD_INFERENCE_BACKEND=aws` with an empty `SAGEMAKER_ENDPOINT_NAME` makes
 `/api/health` report `degraded` with the missing variable named, rather than
 silently serving local predictions under an AWS label.
+
+## AWS architecture
+
+Every service maps to a concrete step in one of two pipelines. Nothing is added
+to make the diagram look larger. `infra/cloudformation/airshield-pulse.yaml`
+declares the whole stack, and `backend/app/services/aws_status.py` reports which
+of those resources are actually configured in the running process — the
+`/api/aws/status` endpoint never claims a service is deployed when it is not.
+
+```
+Forecast pipeline
+  Open-Meteo → EventBridge (hourly) → ingest Lambda → S3 (training data)
+                                                    → DynamoDB (serving state)
+  SageMaker AI (training job + inference endpoint) → FastAPI → React frontend
+
+Notification pipeline
+  EventBridge (30 min) → spike Lambda → SNS topic → subscribers
+```
+
+| Service | Job |
+| --- | --- |
+| **Amazon SageMaker AI** | Training jobs and the real-time inference endpoint. The only AWS AI/ML service used. |
+| **AWS Lambda** | Hourly Open-Meteo ingestion (`infra/lambda/ingest`); 30-minute spike check (`infra/lambda/spike`). |
+| **Amazon S3** | Training datasets, model artifacts and versioned raw samples. |
+| **Amazon DynamoDB** | Latest observation per location; spike-notification de-duplication. |
+| **Amazon EventBridge** | The two schedules that drive the pipelines. |
+| **Amazon SNS** | Delivers pollution-spike notifications to subscribers. |
+| **Amazon CloudWatch** | Logs, errors, latency and service health for the Lambdas and the endpoint. |
+
+The ingest Lambda stores only real Open-Meteo responses and fails loudly if the
+upstream returns nothing. The spike Lambda reads the API's forecast and publishes
+the spike fields verbatim, de-duplicating per hour so subscribers are not spammed.
 
 ## Failure behaviour
 

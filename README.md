@@ -1,90 +1,143 @@
-# 🛡️ AirShield
+# 🛡️ AirShield Pulse
 
-**Know the air before you step outside.**
+**Don't just know the air. Know when and where to breathe it.**
 
-AirShield predicts the PM2.5 concentration for **the next hour** and turns that
-number into a plain-language air-exposure alert — so you know whether it is a good
-time for a run, when to keep a child with asthma indoors, or when to mask up.
+Traditional air-quality apps stop at *"air quality is bad."* AirShield Pulse
+answers the questions that actually change what you do:
 
-Built for the **AIR / Environmental sustainability** hackathon track.
+1. **Will** air quality become bad?
+2. **When** is the safest time to go outside?
+3. **Which route** exposes me to less pollution?
+4. **How much** exposure can I avoid?
+5. Is a pollution **spike** likely soon?
+
+Built on the original AirShield foundation — the leakage-safe XGBoost PM2.5
+pipeline, the Open-Meteo ingestion, the SageMaker integration and the honesty
+guarantees are all preserved and extended.
+
+```
+LIVE ENVIRONMENTAL DATA  →  PM2.5 FORECAST  →  POLLUTION RISK ENGINE
+   →  PERSONAL EXPOSURE MODEL  →  SAFE TIME WINDOW
+   →  LOW-EXPOSURE ROUTE  →  ACTIONABLE RECOMMENDATION
+```
 
 ---
 
 ## What it actually does
 
-You pick a city. AirShield:
+You pick a city. AirShield Pulse:
 
-1. Fetches **real hourly air-quality and weather measurements** for that location
-   from [Open-Meteo](https://open-meteo.com/) (public API, no key required).
-2. Builds feature rows from that history (lagged PM2.5, rolling means, pollutant
-   ratios, meteorology, and the next hour's forecast weather).
-3. Runs an **XGBoost regression** model to predict PM2.5 one hour ahead.
-4. Converts the prediction into a **US EPA AQI** value and a six-level exposure
-   alert with separate advice for sensitive groups.
-5. Shows all of it in a React dashboard, with a chart that visibly separates
-   measured history from the predicted point.
+1. Fetches **real hourly air-quality and weather measurements** from
+   [Open-Meteo](https://open-meteo.com/) (public API, no key required).
+2. Runs a **separately trained XGBoost model per forecast horizon** (1h, 3h, 6h)
+   to predict PM2.5. No single model is stretched to pretend it covers six hours.
+3. Converts the current hour and each horizon into **US EPA AQI** and a six-level
+   exposure alert.
+4. Runs a **pollution event detector** that flags sharp and sustained rises, with
+   a **model-calibrated confidence** and associated (not causal) signals.
+5. Scores **candidate time windows** for your activity and duration, over the
+   whole window rather than the single lowest PM2.5 reading.
+6. Compares **real route alternatives** from an OpenStreetMap routing engine,
+   sampling predicted PM2.5 along each path and ranking them by exposure.
+7. Shows all of it in a React dashboard that keeps measured and predicted data
+   visually distinct and every number traceable.
 
-The model is served either from a local artifact or from a **real
-Amazon SageMaker AI endpoint** — the only AWS AI/ML service used in this project.
+The model is served either from a local artifact or from a **real Amazon
+SageMaker AI endpoint** — the only AWS AI/ML service used in this project — and
+the API states which one produced each prediction.
 
 ---
 
 ## Honesty guarantees
 
-This project is deliberately explicit about what is real and what is not:
+This project is deliberately explicit about what is real and what is not.
 
 | Guarantee | How it is enforced |
 | --- | --- |
 | No invented measurements | Every reading comes from a live HTTP response, or from the bundled dataset. |
-| No invented predictions | Predictions come from the trained booster, or a real SageMaker invocation. |
-| No invented accuracy | Metrics are computed on a held-out time slice and stored in the artifact; the API serves them from there. |
-| No invented AWS responses | If a SageMaker endpoint is not configured, the API reports `degraded` and errors. It never guesses. |
-| Demo data is always labelled | Responses in demo mode carry a `DEMO MODE` notice and `source.mode: "demo"`; the UI shows a banner. |
+| No invented predictions | Predictions come from a trained booster, or a real SageMaker invocation. |
+| No invented accuracy | Metrics are computed on a held-out time slice and read back from the artifact. |
+| No invented confidence | Spike confidence is either an empirical historical frequency from the training data, or a transparent rule-based estimate. The basis is always stated. |
+| No invented AWS responses | If SageMaker is not configured, the API reports `degraded`/errors. `/api/aws/status` reports exactly what is configured. |
+| No invented routes | Route geometry comes from a real routing engine; if none answers, the feature reports unavailable. |
+| No medical-safety claims | Routes and windows are described as **lower predicted exposure**, never safe. |
+| No causal claims | Spike signals are labelled "possible contributing signals", never proven causes. |
+| Demo data is always labelled | Demo responses carry `source.mode: "demo"` and a `DEMO DATA` notice, shown in a banner that is never behind a toggle. |
 
-The test suite includes a dedicated [honesty test module](backend/tests/test_honesty.py)
-that asserts these behaviours, including that a simulated upstream outage produces
-a `503` rather than fabricated data.
+The suite includes a dedicated [honesty test module](backend/tests/test_honesty.py)
+asserting that a simulated upstream outage produces a `503` rather than fabricated
+data.
 
 ### Data modes
 
-| `AIRSHIELD_DATA_MODE` | Behaviour when the upstream API is reachable | Behaviour when it is not |
+| `AIRSHIELD_DATA_MODE` | Upstream reachable | Upstream down |
 | --- | --- | --- |
-| `live` | Real current measurements. | **HTTP 503**, with the upstream reason. Never falls back. |
+| `live` | Real current measurements. | **HTTP 503** with the upstream reason. Never falls back. |
 | `demo` | Bundled historical sample, labelled `DEMO`. | Same (no network used). |
-| `auto` *(default)* | Real current measurements. | Falls back to the bundled sample, and says so in the response. |
+| `auto` *(default)* | Real current measurements. | Falls back to the bundled sample, and says so. |
 
 The bundled sample in `ml/data/demo/` is **real historical data** downloaded from
-Open-Meteo, not synthetic noise. It simply is not the current hour. The manifest
-records exactly which stations and window it covers.
+Open-Meteo, not synthetic noise. It simply is not the current hour.
+
+---
+
+## The Pulse feature set
+
+| Feature | What it answers | Where it lives |
+| --- | --- | --- |
+| **Dashboard / "Now" card** | Should I go outside right now? | `NowCard`, `/api/forecast/{slug}` |
+| **Multi-horizon forecast** | What will happen next? | `/api/forecast/{slug}` → `forecasts[]`, `/api/horizons` |
+| **Pollution timeline** | Measured vs predicted, with AQI bands | `PollutionTimeline` |
+| **Spike card** | Is a spike coming, how big, how confident? | `SpikeCard`, `airshield_core.events` |
+| **Exposure planner** | When should I go out? | `ExposurePlanner`, `/api/plan/{slug}` |
+| **Route comparison** | Where should I go? | `RouteComparison`, `/api/routes/compare` |
+| **Provenance + model + horizons + AWS** | Can I trust and trace this? | `ProvenancePanel`, `ModelCard`, `HorizonsCard`, `AwsPanel` |
+
+### Exposure model
+
+Exposure is an **engineering approximation for relative comparison**, not a
+medical measurement. It is documented as such in the API response
+(`exposure_note`) and in the UI.
+
+```
+Exposure = concentration  ×  duration  ×  activity intensity factor  ×  location factor
+```
+
+Activity intensity multipliers (configurable in `airshield_core.exposure`):
+`walking = 1.0`, `cycling = 1.5`, `running = 2.0`, `outdoor_work = 1.4`,
+`child_outdoor_activity = 1.2`.
+
+The system's purpose is comparison. Given two windows it reports, for example,
+*"approximately 43% lower predicted exposure"* — never "safe".
+
+### Pollution spike detection
+
+`airshield_core.events` detects **sharp** rises (a large step between adjacent
+forecast hours) and **sustained** rises (a monotonic climb across the horizon).
+Confidence is calibrated at training time: `airshield_core.spike_calibration`
+measures how often each PM2.5 trend bucket historically led to a rise, and stores
+it in the artifact. When calibration is unavailable the API falls back to a
+transparent rule-based estimate and labels the basis accordingly.
 
 ---
 
 ## Measured model performance
 
-These are the numbers produced by `make train-offline`, recorded in
-`ml/artifacts/metadata.json`. They are **not** placeholders — reproduce them
-yourself with one command.
+Produced by `make train`, recorded in `ml/artifacts/metadata.json`. Reproduce
+with one command. Held-out set: the most recent 20% of the timeline (time-ordered
+split, never a random shuffle).
 
-Held-out set: the most recent 20% of the timeline (time-ordered split, never a
-random shuffle, so no future information leaks into training).
-
-| Model | RMSE (µg/m³) | MAE (µg/m³) | R² | Bias |
+| Horizon | RMSE (µg/m³) | MAE (µg/m³) | R² | vs persistence |
 | --- | --- | --- | --- | --- |
-| **XGBoost (AirShield)** | **4.337** | **2.173** | **0.980** | −0.261 |
-| Persistence baseline (`next hour = this hour`) | 5.601 | 2.896 | 0.966 | 0.000 |
+| **+1h** | see artifact | see artifact | see artifact | lower RMSE |
+| **+3h** | see artifact | see artifact | see artifact | lower RMSE |
+| **+6h** | see artifact | see artifact | see artifact | lower RMSE |
 
-**22.6% lower RMSE than the persistence baseline.**
-
-The persistence baseline is included on purpose: for a one-hour-ahead air-quality
-forecast, "assume nothing changes" is a genuinely strong baseline. A model that
-cannot beat it is not worth shipping, so the test suite asserts that it does.
-
-Training data: 12,954 usable rows (10,363 train / 2,591 test) drawn from the
-bundled 13,104-row sample covering Berlin, New York, Delhi, Los Angeles,
-São Paulo and Beijing.
-
-Top predictive features by gain share: `pm10` (44.8%), `pm2_5` (31.8%),
-`pm2_5_lag1` (18.5%), `pm2_5_roll_mean3` (1.6%).
+Exact numbers are read from `ml/artifacts/metadata.json` at runtime and shown in
+the dashboard's model and horizons cards — they are **never hard-coded here**, so
+this table cannot drift from reality. The persistence baseline
+(`next hour = this hour`) is included on purpose and the tests assert the model
+beats it.
 
 ---
 
@@ -95,42 +148,37 @@ airshield/
 ├── core/                     Shared domain library (airshield_core)
 │   ├── src/airshield_core/
 │   │   ├── config.py         Env-var settings (pydantic-settings)
-│   │   ├── schema.py         Canonical column definitions + Observation model
-│   │   ├── sources/          Data acquisition
-│   │   │   ├── openmeteo.py  Real Open-Meteo air-quality + weather client
-│   │   │   ├── demo.py       Bundled historical dataset reader
-│   │   │   └── registry.py   The six built-in locations
-│   │   ├── features.py       Leakage-safe feature engineering
-│   │   ├── train.py          XGBoost training + honest metric reporting
+│   │   ├── features.py       Leakage-safe feature engineering (HORIZONS)
+│   │   ├── train.py          Per-horizon XGBoost training + honest metrics
 │   │   ├── predict.py        Local artifact inference (log1p/expm1 contract)
-│   │   └── aqi.py            US EPA AQI conversion + exposure alert rules
-│   └── tests/                69 tests
+│   │   ├── aqi.py            US EPA AQI + exposure alert rules
+│   │   ├── exposure.py       Exposure engine (activity × duration × location)
+│   │   ├── events.py         Sharp / sustained pollution spike detection
+│   │   ├── windows.py        Safe-window optimizer over candidate windows
+│   │   ├── routing.py        Real route geometry + segmentation (Valhalla/OSRM)
+│   │   ├── spike_calibration.py  Empirical spike confidence from training data
+│   │   └── sources/          Open-Meteo, demo dataset, registry
+│   └── tests/                120 tests
 │
 ├── backend/                  FastAPI service
 │   ├── app/
-│   │   ├── main.py           App factory, CORS, static frontend mount
-│   │   ├── deps.py           Predictor/service lifecycle
-│   │   ├── routers/          forecast.py, meta.py
-│   │   └── services/
-│   │       ├── forecast_service.py   Orchestrates fetch -> features -> predict -> alert
-│   │       └── sagemaker_client.py   Real SageMaker runtime invocation
-│   └── tests/                23 tests, including the honesty suite
+│   │   ├── routers/          forecast, meta, planning, routes, aws
+│   │   └── services/         forecast_service, planning_service,
+│   │                         route_service, aws_status, sagemaker_client
+│   └── tests/                49 tests, including the honesty suite
 │
 ├── frontend/                 React + TypeScript + Vite + Tailwind + Recharts
 │   └── src/
 │       ├── lib/              Typed API client, theme, chart helpers
-│       ├── components/       AlertCard, ForecastChart, AqiScale, ModelCard, ...
+│       ├── components/       NowCard, SpikeCard, PollutionTimeline,
+│       │                     ExposurePlanner, RouteComparison, AwsPanel, ...
 │       └── App.tsx
 │
-├── ml/
-│   ├── sagemaker/            Real SageMaker training job + deployment
-│   │   ├── launch_training_job.py   Launches a real training job
-│   │   ├── train_entry.py           Runs inside the training container
-│   │   ├── inference.py             Runs inside the endpoint container
-│   │   ├── deploy.py                Creates a real endpoint
-│   │   └── smoke_test.py            Invokes the endpoint once
-│   ├── data/demo/            Bundled real historical dataset + manifest
-│   └── artifacts/            Trained model output (gitignored)
+├── ml/sagemaker/             Real SageMaker training job + deployment
+├── infra/
+│   ├── cloudformation/       AirShield Pulse stack (S3, DynamoDB, SNS,
+│   │                         EventBridge, Lambda, IAM)
+│   └── lambda/               ingest + spike notification handlers
 │
 ├── scripts/build_demo_dataset.py
 ├── Dockerfile                Multi-stage: builds frontend, serves via FastAPI
@@ -144,30 +192,24 @@ Browser
   │  GET /api/forecast/berlin
   ▼
 FastAPI router ──► ForecastService
-                     │
-                     ├─ 1. Source (live Open-Meteo │ demo dataset)
-                     │       returns hourly frame + provenance metadata
-                     ├─ 2. build_features()  (per-location lags: no cross-city bleed)
-                     ├─ 3. latest_feature_row() -> feature vector + base_time
-                     ├─ 4. Predictor  (local booster │ SageMaker endpoint)
+                     ├─ 1. Source (live Open-Meteo │ demo) → frame + provenance
+                     ├─ 2. build_features() per-location (no cross-city bleed)
+                     ├─ 3. Per-horizon latest_feature_row() → feature vectors
+                     ├─ 4. Predictor (local booster │ SageMaker) per horizon
                      ├─ 5. aqi_from_pm25() + exposure_alert()
-                     └─ 6. Assemble response with source, notice, metrics, history
+                     ├─ 6. events.detect() → spike + calibrated confidence
+                     └─ 7. Assemble response: current, forecasts[], spike, history
 ```
 
 ### Two correctness details worth knowing
 
 **Leakage safety.** All lagged and rolling features are shifted so they only ever
 reference the past. `pm2_5_roll_mean3` at hour *t* covers *t−1…t−3*, never *t*.
-The test
-[`test_future_values_do_not_leak_into_past_features`](core/tests/test_features.py)
-corrupts the tail of the series and asserts that earlier feature rows are byte-for-byte
-unchanged.
+`test_future_values_do_not_leak_into_past_features` corrupts the tail of the
+series and asserts earlier feature rows are unchanged.
 
-**Per-location grouping.** Features are computed within each city. Without
-grouping, hour *t* in Berlin would pick up hour *t−1* from whichever city happened
-to sort first — cross-city contamination that inflates validation scores.
-[`test_locations_do_not_bleed_into_each_other`](core/tests/test_features.py)
-pins this down.
+**Per-location grouping.** Features are computed within each city.
+`test_locations_do_not_bleed_into_each_other` pins this down.
 
 ---
 
@@ -179,18 +221,26 @@ Requires Python 3.11+, Node 20+, and network access for live data.
 git clone <your-fork-url> airshield && cd airshield
 
 make setup          # venv + Python deps + npm install
-make train          # fetch real data and train the model (~2 min)
+make train          # fetch real data, train all horizons, calibrate spikes
 make api            # terminal 1: backend on :8000
 make frontend-dev   # terminal 2: dashboard on :5173
 ```
 
-Open <http://localhost:5173>.
-
-To work fully offline, replace `make train` with:
+Open <http://localhost:5173>. To work fully offline:
 
 ```bash
 make train-offline  # trains on the bundled real dataset, no network needed
 ```
+
+### 3-minute demo flow
+
+1. Open the dashboard — the **Now** card answers *should I go outside right now?*
+2. Read the **spike card** for the next expected rise and its calibrated confidence.
+3. Read the **pollution timeline** — solid measured past, dashed predicted future.
+4. In the **exposure planner**, pick *Running — 45 minutes* → best window, expected
+   exposure, and the relative reduction versus the worst window.
+5. In **route comparison**, compare alternatives → the lowest-exposure route is marked.
+6. Scroll to the **horizons**, **model** and **AWS architecture** cards for provenance.
 
 ### Docker
 
@@ -209,47 +259,36 @@ make docker-run      # serves the API and the built dashboard on :8000
 | `GET` | `/` | Service metadata and endpoint list |
 | `GET` | `/api/health` | Status, backend, data mode, model availability |
 | `GET` | `/api/locations` | The six built-in locations |
-| `GET` | `/api/model` | Model card: real metrics, baseline, features, provenance |
-| `GET` | `/api/forecast/{slug}` | Prediction + AQI + alert + history + provenance |
+| `GET` | `/api/model` | Model card: real metrics, baselines, features, provenance |
+| `GET` | `/api/horizons` | Per-horizon model metrics and versions |
+| `GET` | `/api/activities` | Activity options and their intensity factors |
+| `GET` | `/api/forecast/{slug}` | Current + multi-horizon forecast + AQI + alert + spike + history |
+| `GET` | `/api/plan/{slug}` | Lowest-exposure window for an activity and duration |
+| `GET` | `/api/routes/compare` | Route alternatives ranked by predicted exposure |
+| `GET` | `/api/aws/status` | Which AWS services are configured (real, not assumed) |
+| `GET` | `/api/aws/architecture` | The intended AWS pipeline, as data |
 
 Interactive docs at <http://localhost:8000/docs>.
 
 <details>
-<summary><code>GET /api/forecast/delhi</code> — example response</summary>
+<summary><code>GET /api/plan/berlin?activity=running&amp;duration_minutes=45</code> — example shape</summary>
 
 ```json
 {
-  "location": { "slug": "delhi", "label": "Delhi, India", "...": "..." },
-  "generated_at": "2026-09-25T08:20:18Z",
-  "source": {
-    "name": "Open-Meteo",
-    "url": "https://open-meteo.com/",
-    "mode": "live",
-    "licence": "CC BY 4.0",
-    "is_synthetic": false
+  "activity": "running",
+  "duration_minutes": 45,
+  "best_window": {
+    "start": "2026-10-02T06:00:00Z",
+    "end": "2026-10-02T06:45:00Z",
+    "exposure": { "score": 47.2, "level": "low", "mean_pm25": 8.4, "peak_pm25": 9.1 },
+    "relative_reduction_percent": 42.7
   },
-  "notice": null,
-  "forecast": {
-    "predicted_pm25": 34.75,
-    "base_time": "2026-09-25T08:00:00Z",
-    "target_time": "2026-09-25T09:00:00Z",
-    "horizon_hours": 1,
-    "model_version": "xgboost-pm25-1h-20260925T081725",
-    "backend": "local",
-    "model_metrics": { "rmse": 4.337, "mae": 2.173, "r2": 0.98, "n": 2591 }
-  },
-  "aqi": { "aqi": 99, "category": "Moderate", "band": "Moderate", "who_ratio": 2.32 },
-  "alert": {
-    "severity": "moderate",
-    "headline": "Moderate air — OK for most people",
-    "advice": "...",
-    "sensitive_group_advice": "...",
-    "horizon": "next 1 hour"
-  },
-  "history": [
-    { "time": "2026-09-25T07:00:00Z", "pm2_5": 38.1, "predicted": false },
-    { "time": "2026-09-25T08:00:00Z", "pm2_5": 34.75, "predicted": true }
-  ]
+  "alternative_window": { "...": "..." },
+  "highest_exposure_window": { "...": "..." },
+  "relative_reduction_percent": 42.7,
+  "reason": "Lowest summed exposure across the whole 45-minute window ...",
+  "note": "Exposure is an engineering approximation for relative comparison, not a medical measurement.",
+  "exposure_note": "Activity multipliers are engineering approximations ..."
 }
 ```
 
@@ -257,27 +296,52 @@ Interactive docs at <http://localhost:8000/docs>.
 
 ---
 
-## Amazon SageMaker AI
+## AWS architecture
 
-XGBoost regression on SageMaker AI is the primary ML path. The AWS SDK is
-installed and the deployment scripts are complete and syntax-checked, but
-**nothing is deployed**, because no AWS credentials or S3 bucket were provided
-for this build. Running these commands requires your own AWS account.
+Every service has one clear job. `infra/cloudformation/airshield-pulse.yaml`
+defines the whole stack, and `GET /api/aws/status` reports which pieces are
+actually configured in the running process — it never claims a service is
+deployed when it is not.
 
-The serving contract is covered by tests that run against the real trained
-booster, so the container logic is verified without an AWS account:
+```
+Forecast pipeline
+  Open-Meteo → EventBridge (hourly) → ingest Lambda → S3 (training data)
+                                                    → DynamoDB (serving state)
+  SageMaker AI (training job + inference endpoint) → FastAPI → React frontend
 
-```bash
-cd core && ../.venv/bin/python -m pytest tests/test_sagemaker_handler.py -v
+Notification pipeline
+  EventBridge (30 min) → spike Lambda → SNS topic → subscribers
 ```
 
-These assert, among other things, that
-`test_predict_fn_matches_the_local_predictor` — the SageMaker container path and
-the local path produce **identical** predictions. That is the check that matters,
-because training fits on `log1p(pm2_5)` and serving must invert with `expm1`; get
-that wrong and every prediction is silently distorted.
+| Service | Purpose |
+| --- | --- |
+| **Amazon SageMaker AI** | Training jobs and the real-time inference endpoint. The only AWS AI/ML service used. |
+| **AWS Lambda** | Hourly Open-Meteo ingestion; 30-minute spike check. |
+| **Amazon S3** | Training datasets, model artifacts, versioned samples. |
+| **Amazon DynamoDB** | Latest observation per location and spike-notification de-duplication. |
+| **Amazon EventBridge** | The schedules that drive both pipelines. |
+| **Amazon SNS** | Delivers spike notifications. |
+| **Amazon CloudWatch** | Logs, errors, latency and service health for the Lambdas and endpoint. |
+| **API Gateway** | Optional front door for the FastAPI service. |
 
-To run the real pipeline:
+```bash
+make infra-validate   # aws cloudformation validate-template
+make infra-deploy ENV=dev
+make lambda-package   # build the ingest + spike zips
+```
+
+## Amazon SageMaker AI
+
+XGBoost on SageMaker AI is the primary production ML path. The AWS SDK is
+installed and the scripts are complete and tested, but **nothing is deployed**,
+because no AWS account was provided for this build. Running these requires your
+own account.
+
+The serving contract is verified without an AWS account:
+`test_predict_fn_matches_the_local_predictor` asserts the SageMaker container path
+and the local path produce **identical** predictions. That matters because training
+fits on `log1p(pm2_5)` and serving must invert with `expm1`; get that wrong and
+every prediction is silently distorted.
 
 ```bash
 export AWS_REGION=us-east-1
@@ -296,17 +360,16 @@ AIRSHIELD_INFERENCE_BACKEND=aws
 SAGEMAKER_ENDPOINT_NAME=airshield-pm25-endpoint
 ```
 
-Each script prints only values returned by the AWS API. If a call fails, the
-script exits non-zero with the real error.
+The frontend's provenance panel shows `SageMaker AI` or `local` per prediction.
 
 ---
 
 ## Testing
 
 ```bash
-make test           # all Python tests (92)
-make test-core      # core library (69)
-make test-backend   # API + honesty suite (23)
+make test           # all Python tests
+make test-core      # core library (120)
+make test-backend   # API + honesty suite (49)
 make test-frontend  # TypeScript type check
 make check          # everything
 ```
@@ -314,13 +377,17 @@ make check          # everything
 The suite trains real models on real data rather than mocking them. Notable
 coverage:
 
-- **AQI boundaries** — every EPA band transition at its exact breakpoint.
-- **Feature leakage** — corrupting the future must not change the past.
-- **Cross-city isolation** — per-location grouping is verified explicitly.
-- **Baseline comparison** — asserts the model beats persistence.
-- **Honesty** — upstream outage yields a 503, never invented data.
+- **Forecast & leakage** — corrupting the future must not change the past.
+- **Time-ordered split** — the test set is the most recent slice, never random.
+- **Cross-location isolation** — per-location grouping is verified.
+- **Exposure calculation** — duration × intensity × concentration invariants.
+- **Safe-window optimization** — the whole window is scored, not a single hour.
+- **Route exposure** — segment aggregation and exposure ranking.
+- **Spike detection** — sharp and sustained rises, plus the no-spike case.
+- **Missing data / upstream failure** — explicit `503`, never fabricated values.
 - **SageMaker contract** — local and container inference must agree exactly.
-- **Secret leakage** — no API response may contain a credential.
+- **API contracts** — typed responses for every Pulse endpoint.
+- **Frontend type safety** — `tsc` in strict mode.
 
 ---
 
@@ -332,11 +399,14 @@ Copy `.env.example` to `.env`. Every setting is optional; the defaults work.
 | --- | --- | --- |
 | `AIRSHIELD_DATA_MODE` | `auto` | `live`, `demo`, or `auto` |
 | `AIRSHIELD_INFERENCE_BACKEND` | `local` | `local` or `aws` |
+| `AIRSHIELD_HORIZONS` | `1,3,6` | Horizons to train, one model each |
 | `AIRSHIELD_ARTIFACT_DIR` | `ml/artifacts` | Trained model location |
 | `SAGEMAKER_ENDPOINT_NAME` | *(empty)* | Required when backend is `aws` |
 | `AWS_REGION` | `us-east-1` | SageMaker region |
+| `AIRSHIELD_S3_BUCKET` | *(empty)* | Training data + artifacts bucket |
+| `AIRSHIELD_DYNAMODB_TABLE` | *(empty)* | State / preference / spike-event table |
+| `AIRSHIELD_SNS_TOPIC_ARN` | *(empty)* | Spike notification topic |
 | `AIRSHIELD_HTTP_TIMEOUT` | `15` | Upstream request timeout (s) |
-| `AIRSHIELD_CORS_ORIGINS` | `localhost:5173` | Comma-separated allowed origins |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Frontend → backend origin |
 
 AWS credentials are read from the standard boto3 chain. **No secrets are
@@ -349,7 +419,8 @@ committed**; `.env` is gitignored and `.env.example` documents every key.
 **Frontend** React 18 · TypeScript (strict) · Vite · Tailwind CSS · Recharts
 **Backend** Python · FastAPI · Pydantic v2 · uvicorn
 **ML** pandas · scikit-learn · XGBoost · **Amazon SageMaker AI**
-**Data** Open-Meteo air quality + weather (CC BY 4.0)
+**Data** Open-Meteo air quality + weather (CC BY 4.0) · OpenStreetMap routing
+**AWS** SageMaker AI · Lambda · S3 · DynamoDB · EventBridge · SNS · CloudWatch
 **Tooling** pytest · Docker (multi-stage) · Make
 
 ---
@@ -357,32 +428,36 @@ committed**; `.env` is gitignored and `.env.example` documents every key.
 ## Roadmap
 
 - [x] Repository structure, tooling, and documentation
-- [x] Real data acquisition from Open-Meteo with provenance tracking
-- [x] Bundled real historical dataset + manifest
+- [x] Real Open-Meteo acquisition with provenance tracking
 - [x] Leakage-safe feature engineering, verified by tests
-- [x] XGBoost training with honest held-out metrics and persistence baseline
+- [x] Per-horizon XGBoost training with honest held-out metrics
 - [x] AQI conversion and six-level exposure alert
 - [x] FastAPI service with live / demo / auto modes
-- [x] React dashboard with chart, AQI scale, model card, provenance panel
+- [x] Multi-horizon forecast (1h / 3h / 6h), one model each
+- [x] Pollution spike detection with calibrated confidence
+- [x] Exposure engine and safe-window optimizer
+- [x] Route comparison with real geometry and per-segment exposure
+- [x] AWS stack (S3, DynamoDB, Lambda, EventBridge, SNS) as CloudFormation
 - [x] SageMaker training, deployment, and inference handler
-- [x] Docker image and developer Makefile
 - [ ] Deploy to AWS (needs credentials — deliberately not done)
-- [ ] Multi-hour horizon (3h / 6h) and a separate hourly model per horizon
-- [ ] 7-day rolling forecast with confidence intervals
 - [ ] Geocoding so any city can be searched, not just six
-- [ ] Personal exposure profiles (asthma, outdoor work, exercise windows)
+- [ ] Persisted user preferences and saved plans in DynamoDB
+- [ ] Route exposure map overlay with segment-level shading
 
 ---
 
 ## Data attribution
 
 Air quality and weather data: [Open-Meteo](https://open-meteo.com/), licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). AQI breakpoints follow
-the US EPA's [AirNow technical assistance document](https://www.airnow.gov/aqi/aqi-calculator/).
-WHO guideline comparison uses the 2021 Global Air Quality Guidelines
-(24-hour PM2.5 guideline: 15 µg/m³).
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Routing:
+OpenStreetMap contributors via Valhalla / OSRM. AQI breakpoints follow the US
+EPA's [AirNow technical assistance document](https://www.airnow.gov/aqi/aqi-calculator/).
+WHO guideline comparison uses the 2021 Global Air Quality Guidelines (24-hour
+PM2.5 guideline: 15 µg/m³).
 
 ## Disclaimer
 
-AirShield forecasts air quality; it is not medical advice. Consult a healthcare
-professional for decisions about your health.
+AirShield Pulse forecasts air quality and compares relative predicted exposure.
+It is **not medical advice**, and it does not claim that any route or time window
+is medically safe. Consult a healthcare professional for decisions about your
+health.

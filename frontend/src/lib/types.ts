@@ -63,15 +63,193 @@ export interface HistoryPoint {
   predicted: boolean
 }
 
+export interface WeatherOut {
+  temperature_2m: number | null
+  relative_humidity_2m: number | null
+  wind_speed_10m: number | null
+  wind_direction_10m: number | null
+  surface_pressure: number | null
+  precipitation: number | null
+}
+
+export interface CurrentOut {
+  time: string
+  pm2_5: number
+  pm10: number | null
+  nitrogen_dioxide: number | null
+  ozone: number | null
+  aqi: number
+  category: string
+  band: string
+  who_ratio: number
+  weather: WeatherOut
+}
+
+export interface HorizonForecast {
+  horizon_hours: number
+  predicted_pm25: number
+  base_time: string
+  target_time: string
+  model_version: string
+  backend: InferenceBackend
+  aqi: number
+  category: string
+  band: string
+  who_ratio: number
+  model_metrics: Record<string, number>
+}
+
+export interface AssociatedSignal {
+  label: string
+  direction?: string
+  detail?: string
+}
+
+export interface SpikeOut {
+  spike_detected: boolean
+  kind: string
+  severity: string
+  expected_time: string | null
+  expected_change_percent: number
+  peak_pm25: number | null
+  baseline_pm25: number
+  horizon_hours: number
+  confidence: number
+  confidence_basis: string
+  associated_signals: AssociatedSignal[]
+  signal_disclaimer?: string | null
+  message: string
+}
+
 export interface ForecastResponse {
   location: LocationOut
   generated_at: string
   source: SourceInfo
   notice: string | null
+  current: CurrentOut
   forecast: ForecastOut
+  forecasts: HorizonForecast[]
+  unavailable_horizons: string[]
   aqi: AqiOut
   alert: AlertOut
+  spike: SpikeOut | null
   history: HistoryPoint[]
+}
+
+// -------------------------------------------------------------- planning
+export interface ActivityOption {
+  activity: string
+  label: string
+  intensity: number
+}
+
+export interface ExposureEstimate {
+  score: number
+  level: string
+  level_label: string
+  mean_pm25: number
+  peak_pm25: number
+  duration_minutes: number
+  activity: string
+  activity_label: string
+  activity_intensity: number
+  location_factor: number
+  micro_scale: number
+  basis: string
+}
+
+export interface WindowOut {
+  start: string
+  end: string
+  exposure: ExposureEstimate
+  relative_reduction_percent: number | null
+}
+
+export interface TimelinePoint {
+  time: string
+  pm2_5: number
+  horizon_hours: number
+}
+
+export interface ExposurePlanResponse {
+  location: string
+  location_slug: string
+  activity: string
+  activity_label: string
+  duration_minutes: number
+  basis: string
+  generated_at: string
+  base_time: string
+  source: SourceInfo
+  notice: string | null
+  best_window: WindowOut
+  alternative_window: WindowOut | null
+  highest_exposure_window: WindowOut | null
+  relative_reduction_percent: number | null
+  reason: string
+  note: string
+  exposure_note: string
+  candidates: WindowOut[]
+  timeline: TimelinePoint[]
+}
+
+// ---------------------------------------------------------------- routes
+export interface RouteOut {
+  route_id: string
+  label: string
+  distance_km: number
+  duration_minutes: number
+  average_pm25: number
+  peak_pm25: number
+  exposure_score: number
+  exposure_level: string
+  activity: string
+  activity_label: string
+  relative_reduction_percent: number | null
+  provider: string
+  geometry: number[][]
+}
+
+export interface RouteComparisonResponse {
+  mode: string
+  activity: string
+  provider: string | null
+  provider_profile: string | null
+  generated_at: string
+  routes: RouteOut[]
+  recommended_route_id: string
+  relative_reduction_percent: number | null
+  recommendation: string
+  note: string
+}
+
+// ------------------------------------------------------------------- aws
+export interface AwsComponent {
+  key: string
+  name: string
+  purpose: string
+  configured: boolean
+  detail: string
+}
+
+export interface AwsStatusResponse {
+  region: string
+  inference_backend: string
+  sagemaker_active: boolean
+  components: AwsComponent[]
+  configured_components: string[]
+  credentials: { verified: boolean; detail: string; account?: string; arn?: string }
+  note: string
+}
+
+export interface AwsArchitecture {
+  pipeline: string[]
+  notification_pipeline: string[]
+  observability: string
+  region: string
+  ml_service: string
+  infrastructure_as_code: string
+  note: string
 }
 
 export interface HealthResponse {
@@ -90,11 +268,13 @@ export interface ModelInfoResponse {
   inference_backend: InferenceBackend
   model_version?: string | null
   trained_at?: string | null
+  horizon_hours?: number | null
   feature_count?: number | null
   train_rows?: number | null
   test_rows?: number | null
   metrics: Record<string, number>
   baseline_metrics: Record<string, number>
+  moving_average_metrics: Record<string, number>
   train_window: Record<string, string>
   locations: string[]
   data_source: Record<string, unknown>
@@ -102,4 +282,21 @@ export interface ModelInfoResponse {
   library_versions: Record<string, string>
   top_features: { feature: string; gain_share: number }[]
   note?: string | null
+}
+
+export interface HorizonCard {
+  horizon_hours: number
+  model_version: string | null
+  trained_at: string | null
+  metrics: Record<string, number>
+  baseline_metrics: Record<string, number>
+  moving_average_metrics: Record<string, number>
+  train_rows: number | null
+  test_rows: number | null
+}
+
+export interface HorizonsResponse {
+  horizons: HorizonCard[]
+  available: number[]
+  note: string
 }

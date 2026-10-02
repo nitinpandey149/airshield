@@ -65,11 +65,21 @@ def test_demo_source_returns_observations(demo_csv: Path) -> None:
 
 
 def test_demo_prediction_frame_clears_the_final_pm25(demo_csv: Path) -> None:
-    """The last row must mimic the live path: forecast weather, no measurement."""
+    """The forecast rows must mimic the live path: forecast weather, no measurement."""
     source = DemoSource(demo_csv.parents[1])
-    frame = source.fetch_frame_for_prediction("Berlin", window_hours=48)
-    assert frame["pm2_5"].iloc[-1] != frame["pm2_5"].iloc[-1]  # NaN check
-    assert frame["pm2_5"].iloc[:-1].notna().all()
+    frame, base_time = source.fetch_frame_for_prediction("Berlin", window_hours=48)
+    forecast_rows = frame[frame["is_forecast"]]
+    assert len(forecast_rows) == 1
+    assert forecast_rows["pm2_5"].isna().all()
+    assert frame.loc[~frame["is_forecast"], "pm2_5"].notna().all()
+    assert base_time == frame.loc[~frame["is_forecast"], "time"].max()
+
+
+def test_demo_multi_horizon_frame(demo_csv: Path) -> None:
+    source = DemoSource(demo_csv.parents[1])
+    frame, base_time = source.fetch_frame_for_prediction("Berlin", window_hours=48, future_hours=6)
+    assert frame["is_forecast"].sum() == 6
+    assert frame[frame["is_forecast"]]["pm2_5"].isna().all()
 
 
 def test_demo_source_reports_a_missing_file(tmp_path: Path) -> None:

@@ -18,8 +18,11 @@ from fastapi.staticfiles import StaticFiles
 
 from airshield_core import __version__
 from airshield_core.config import REPO_ROOT, get_settings
+from app.routers import aws as aws_router
 from app.routers import forecast as forecast_router
 from app.routers import meta as meta_router
+from app.routers import planning as planning_router
+from app.routers import routes as routes_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,25 +52,34 @@ app.add_middleware(
 
 app.include_router(meta_router.router)
 app.include_router(forecast_router.router)
+app.include_router(planning_router.router)
+app.include_router(routes_router.router)
+app.include_router(aws_router.router)
 
 
 def service_banner() -> dict:
     """Service banner with the active configuration, so a client can self-check."""
     return {
-        "name": "AirShield API",
+        "name": "AirShield Pulse API",
         "version": __version__,
-        "tagline": "Know the air before you step outside.",
+        "tagline": "Don't just know the air. Know when and where to breathe it.",
         "inference_backend": settings.inference_backend,
         "data_mode": settings.data_mode,
         "endpoints": {
             "health": "/api/health",
             "model": "/api/model",
+            "horizons": "/api/horizons",
             "locations": "/api/locations",
             "forecast": "/api/forecast/{location_slug}",
+            "activities": "/api/activities",
+            "plan": "/api/plan/{location_slug}",
+            "routes": "/api/routes/compare",
+            "aws_status": "/api/aws/status",
             "docs": "/docs",
         },
         "ml_service": "Amazon SageMaker AI (XGBoost)",
         "data_source": "Open-Meteo (CC BY 4.0)",
+        "routing": "OpenStreetMap via Valhalla / OSRM",
     }
 
 

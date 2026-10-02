@@ -13,8 +13,9 @@ export PYTHONPATH := $(REPO_ROOT)/backend:$(REPO_ROOT)/core/src
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install train train-offline build-demo-data api frontend-dev \
-        frontend-build test test-core test-backend test-frontend lint clean \
-        docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke check
+        frontend-build test test-core test-backend test-infra test-frontend lint clean \
+        docker-build docker-run sagemaker-train sagemaker-deploy sagemaker-smoke \
+        infra-validate infra-deploy lambda-package check
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -55,13 +56,16 @@ frontend-build: ## Type-check and build the frontend
 	cd frontend && npm run build
 
 # --------------------------------------------------------------------- tests
-test: test-core test-backend ## Run all Python tests
+test: test-core test-backend test-infra ## Run all Python tests
 
 test-core: ## Run the core library tests
 	cd core && ../$(PY) -m pytest tests -q
 
 test-backend: ## Run the API tests
 	cd backend && ../$(PY) -m pytest tests -q
+
+test-infra: ## Run the AWS Lambda handler tests
+	cd infra && ../$(PY) -m pytest tests -q
 
 test-frontend: ## Type-check the frontend
 	cd frontend && npx tsc -b --noEmit
@@ -84,6 +88,22 @@ sagemaker-deploy: ## Deploy the trained artifact to a SageMaker endpoint
 
 sagemaker-smoke: ## Invoke the deployed SageMaker endpoint once
 	$(PY) ml/sagemaker/smoke_test.py
+
+# ----------------------------------------------------------------------- aws
+infra-validate: ## Validate the CloudFormation template (needs AWS creds)
+	aws cloudformation validate-template \
+		--template-body file://infra/cloudformation/airshield-pulse.yaml
+
+infra-deploy: ## Deploy the AWS stack (needs AWS creds; ENV=dev by default)
+	aws cloudformation deploy \
+		--template-file infra/cloudformation/airshield-pulse.yaml \
+		--stack-name airshield-pulse-$(or $(ENV),dev) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--parameter-overrides Environment=$(or $(ENV),dev)
+
+lambda-package: ## Build the two Lambda zip packages
+	cd infra/lambda && zip -r ../../infra/lambda/ingest.zip ingest -x '*.pyc'
+	cd infra/lambda && zip -r ../../infra/lambda/spike.zip spike -x '*.pyc'
 
 # --------------------------------------------------------------------- clean
 clean: ## Remove build output and caches

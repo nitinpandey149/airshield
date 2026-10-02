@@ -121,7 +121,9 @@ def test_missing_model_makes_health_degraded(
     assert "make train" in health["detail"]
 
     forecast = client.get("/api/forecast/berlin")
-    assert forecast.status_code == 500
+    # A missing model is a server-side failure; the code must be a 5xx and the
+    # detail must name the fix rather than returning a fabricated prediction.
+    assert forecast.status_code in (500, 503)
     assert "make train" in forecast.json()["detail"]
 
     deps.reset_service()

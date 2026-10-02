@@ -24,8 +24,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from airshield_core.features import FEATURE_COLUMNS, TARGET_COLUMN, build_training_frame
-from airshield_core.predict import METADATA_FILENAME, MODEL_FILENAME, ModelMetadata
+from airshield_core.features import (
+    FEATURE_COLUMNS,
+    HORIZONS,
+    TARGET_COLUMN,
+    build_training_frame,
+    target_column,
+)
+from airshield_core.predict import (
+    METADATA_FILENAME,
+    MODEL_FILENAME,
+    ModelMetadata,
+    metadata_filename,
+    model_filename,
+)
 
 #: Fraction of the timeline held out as the most-recent test window.
 TEST_FRACTION = 0.2
@@ -53,10 +65,12 @@ class TrainingResult:
 
     metrics: dict[str, float]
     baseline_metrics: dict[str, float]
+    moving_average_metrics: dict[str, float]
     train_rows: int
     test_rows: int
     artifact_dir: Path
     feature_importance: dict[str, float]
+    horizon_hours: int = 1
 
 
 def regression_metrics(actual: np.ndarray, predicted: np.ndarray) -> dict[str, float]:
@@ -85,17 +99,22 @@ def train_model(
     hyperparameters: dict | None = None,
     locations: list[str] | None = None,
     data_source: dict | None = None,
+    horizon: int = 1,
 ) -> TrainingResult:
-    """Train, evaluate and persist an XGBoost PM2.5 model.
+    """Train, evaluate and persist an XGBoost PM2.5 model for one horizon.
 
     ``frame`` must be a concatenation of hourly observations (all locations are
     fine - ``location`` is not a feature, so the model learns transportable
-    dynamics rather than memorising a city).
+    dynamics rather than memorising a city). ``horizon`` is the number of hours
+    ahead being predicted; each horizon is trained as a separate booster.
     """
+    if horizon < 1:
+        raise ValueError("horizon must be >= 1")
     params = {**DEFAULT_HYPERPARAMETERS, **(hyperparameters or {})}
     artifact_dir = Path(artifact_dir)
+    target = target_column(horizon)
 
-    featured = build_training_frame(frame)
+    featured = build_training_frame(frame, horizon=horizon)
     featured = featured.sort_values("time").reset_index(drop=True)
 
     if len(featured) < MIN_TRAINING_ROWS:
@@ -110,9 +129,9 @@ def train_model(
     test_df = featured.iloc[split_index:]
 
     x_train = train_df[list(FEATURE_COLUMNS)].to_numpy(dtype=np.float32)
-    y_train_raw = train_df[TARGET_COLUMN].to_numpy(dtype=np.float64)
+    y_train_raw = train_df[target].to_numpy(dtype=np.float64)
     x_test = test_df[list(FEATURE_COLUMNS)].to_numpy(dtype=np.float32)
-    y_test_raw = test_df[TARGET_COLUMN].to_numpy(dtype=np.float64)
+    y_test_raw = test_df[target].to_numpy(dtype=np.float64)
 
     # --- fit on log1p -------------------------------------------------------
     import xgboost as xgb
@@ -133,13 +152,18 @@ def train_model(
 
     metrics = regression_metrics(y_test_raw, predicted)
 
-    # --- persistence baseline: next hour == this hour ----------------------
+    # --- baselines ----------------------------------------------------------
+    # Persistence: next hour == this hour.
     baseline_pred = test_df["pm2_5"].to_numpy(dtype=np.float64)
     baseline_metrics = regression_metrics(y_test_raw, baseline_pred)
+    # Moving average: the mean of the recent past (3-hour rolling mean, which is
+    # strictly past-looking and therefore a fair, leakage-free baseline).
+    moving_average_pred = test_df["pm2_5_roll_mean3"].to_numpy(dtype=np.float64)
+    moving_average_metrics = regression_metrics(y_test_raw, moving_average_pred)
 
     # --- persist ------------------------------------------------------------
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    model_path = artifact_dir / MODEL_FILENAME
+    model_path = artifact_dir / model_filename(horizon)
     booster.save_model(str(model_path))
 
     importance = booster.get_score(importance_type="gain")
@@ -151,8 +175,10 @@ def train_model(
     metadata = ModelMetadata(
         trained_at=datetime.now(timezone.utc).isoformat(),
         feature_columns=list(FEATURE_COLUMNS),
+        horizon_hours=horizon,
         metrics=metrics,
         baseline_metrics=baseline_metrics,
+        moving_average_metrics=moving_average_metrics,
         train_rows=int(len(train_df)),
         test_rows=int(len(test_df)),
         train_window={
@@ -170,27 +196,32 @@ def train_model(
         },
         feature_importance=feature_importance,
     )
-    (artifact_dir / METADATA_FILENAME).write_text(metadata.to_json(), encoding="utf-8")
+    (artifact_dir / metadata_filename(horizon)).write_text(
+        metadata.to_json(), encoding="utf-8"
+    )
 
     return TrainingResult(
         metrics=metrics,
         baseline_metrics=baseline_metrics,
+        moving_average_metrics=moving_average_metrics,
         train_rows=int(len(train_df)),
         test_rows=int(len(test_df)),
         artifact_dir=artifact_dir,
         feature_importance=feature_importance,
+        horizon_hours=horizon,
     )
 
 
 def summarize(result: TrainingResult) -> str:
     """Render a human-readable training report."""
     m, b = result.metrics, result.baseline_metrics
+    ma = result.moving_average_metrics
     skill = 0.0
     if b["rmse"] > 0:
         skill = round((b["rmse"] - m["rmse"]) / b["rmse"] * 100, 2)
 
     lines = [
-        "AirShield - 1h PM2.5 model",
+        f"AirShield - {result.horizon_hours}h PM2.5 model",
         "-" * 46,
         f"rows         : {result.train_rows} train / {result.test_rows} test (time-ordered)",
         "",
@@ -198,6 +229,13 @@ def summarize(result: TrainingResult) -> str:
         f"  RMSE {m['rmse']:.3f}  MAE {m['mae']:.3f}  R2 {m['r2']:.3f}  bias {m['mean_bias']:+.3f}",
         "baseline (persistence: next hour = this hour)",
         f"  RMSE {b['rmse']:.3f}  MAE {b['mae']:.3f}  R2 {b['r2']:.3f}  bias {b['mean_bias']:+.3f}",
+    ]
+    if ma:
+        lines += [
+            "baseline (3h moving average)",
+            f"  RMSE {ma['rmse']:.3f}  MAE {ma['mae']:.3f}  R2 {ma['r2']:.3f}  bias {ma['mean_bias']:+.3f}",
+        ]
+    lines += [
         "",
         f"RMSE improvement over persistence: {skill:+.2f}%",
         "",
@@ -236,10 +274,19 @@ def main(argv: list[str] | None = None) -> int:
         help="train from a local CSV instead of fetching (offline mode)",
     )
     parser.add_argument("--out", default=None, help="artifact directory")
+    parser.add_argument(
+        "--horizons",
+        default=",".join(str(h) for h in HORIZONS),
+        help="comma-separated forecast horizons in hours (e.g. 1,3,6)",
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
     out_dir = Path(args.out) if args.out else settings.artifact_path
+    horizons = [int(h) for h in args.horizons.split(",") if h.strip()]
+    if not horizons:
+        print("ERROR: no horizons requested")
+        return 1
 
     if args.from_csv:
         frame = pd.read_csv(args.from_csv)
@@ -284,15 +331,34 @@ def main(argv: list[str] | None = None) -> int:
         }
         locations = [l.name for l in selected]
 
-    result = train_model(
-        frame,
-        artifact_dir=out_dir,
-        num_rounds=args.rounds,
-        locations=locations,
-        data_source=source_info,
+    result = None
+    for horizon in horizons:
+        result = train_model(
+            frame,
+            artifact_dir=out_dir,
+            num_rounds=args.rounds,
+            locations=locations,
+            data_source=source_info,
+            horizon=horizon,
+        )
+        print()
+        print(summarize(result))
+
+    # Spike-detection calibration: measured historical frequency of a rise of a
+    # given size turning into a spike, per horizon. This is what lets the API
+    # report a calibrated confidence instead of a rule-of-thumb number.
+    from airshield_core.spike_calibration import (
+        CALIBRATION_FILENAME,
+        build_calibration,
     )
+
+    calibration = build_calibration(frame, horizons=tuple(horizons), source=str(source_info.get("kind", "")))
+    path = calibration.save(out_dir / CALIBRATION_FILENAME)
     print()
-    print(summarize(result))
+    print(f"spike calibration written to {path}")
+    for horizon, buckets in calibration.horizons.items():
+        summary = ", ".join(f"{bucket}:{rate:.2f}" for bucket, rate in buckets.items())
+        print(f"  horizon {horizon}h  {summary}")
     return 0
 
 

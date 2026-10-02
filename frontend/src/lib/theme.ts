@@ -95,3 +95,43 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   })
 }
+
+/** A time window as "6:00 AM – 6:45 AM". */
+export function formatTimeRange(startIso: string, endIso: string): string {
+  return `${formatHour(startIso)} – ${formatHour(endIso)}`
+}
+
+/** Relative day prefix, so a window tomorrow is not mistaken for today. */
+export function formatDayLabel(iso: string): string {
+  const date = new Date(iso)
+  const now = new Date()
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000)
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+interface ExposureTheme {
+  label: string
+  badge: string
+  hex: string
+}
+
+/** Colours for the relative exposure levels produced by the backend. */
+export const EXPOSURE_THEME: Record<string, ExposureTheme> = {
+  low: { label: 'Low', badge: 'bg-emerald-500/20 text-emerald-300', hex: '#22c55e' },
+  moderate: { label: 'Moderate', badge: 'bg-yellow-500/20 text-yellow-200', hex: '#eab308' },
+  high: { label: 'High', badge: 'bg-orange-500/20 text-orange-200', hex: '#f97316' },
+  very_high: { label: 'Very high', badge: 'bg-red-500/20 text-red-200', hex: '#ef4444' },
+}
+
+export function exposureTheme(level: string): ExposureTheme {
+  return EXPOSURE_THEME[level] ?? { label: level, badge: 'bg-white/10 text-slate-200', hex: '#94a3b8' }
+}
+
+/** Format a signed percentage, e.g. "+35%". */
+export function formatSignedPercent(value: number): string {
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(0)}%`
+}

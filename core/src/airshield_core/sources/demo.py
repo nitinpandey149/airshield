@@ -106,16 +106,31 @@ class DemoSource:
         )
 
     def fetch_frame_for_prediction(
-        self, location_name: str, *, window_hours: int = 72
-    ) -> pd.DataFrame:
-        """Bundled frame trimmed to end with a forecast-weather row.
+        self,
+        location_name: str,
+        *,
+        window_hours: int = 72,
+        future_hours: int = 1,
+    ) -> tuple[pd.DataFrame, pd.Timestamp]:
+        """Bundled frame trimmed to end with forecast rows.
 
-        The bundled CSV has measured PM2.5 on every row, so the last row is used
-        as the "next hour" weather row and its PM2.5 is cleared, mirroring the
-        live path exactly.
+        The bundled CSV has measured PM2.5 on every row, so the rows after the
+        base hour are used as "forecast" rows and their PM2.5 is cleared,
+        mirroring the live path exactly. Returns ``(frame, base_time)``.
         """
-        frame = self.fetch_frame(location_name).tail(window_hours + 1).reset_index(drop=True)
-        if len(frame) < 2:
+        if future_hours < 1:
+            raise ValueError("future_hours must be >= 1")
+        frame = (
+            self.fetch_frame(location_name)
+            .tail(window_hours + future_hours)
+            .reset_index(drop=True)
+        )
+        if len(frame) < future_hours + 2:
             raise ValueError(f"not enough bundled rows for {location_name!r}")
-        frame.loc[frame.index[-1], "pm2_5"] = float("nan")
-        return frame
+
+        base_time = pd.Timestamp(frame["time"].iloc[-(future_hours + 1)])
+        frame["is_forecast"] = frame["time"] > base_time
+        # Clear PM2.5 on the forecast rows so the model cannot read a future
+        # measurement, exactly as in the live path.
+        frame.loc[frame["is_forecast"], "pm2_5"] = float("nan")
+        return frame, base_time

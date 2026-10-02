@@ -30,13 +30,21 @@ def demo_csv() -> Path:
 
 @pytest.fixture(scope="session")
 def artifact_dir(tmp_path_factory, demo_csv: Path) -> Path:
-    """Train a real model on the real bundled data for the test session."""
+    """Train real models on the real bundled data for the test session.
+
+    All supported horizons are trained so the multi-horizon and planning paths
+    are exercised against genuine boosters rather than stubs.
+    """
+    from airshield_core.features import HORIZONS
+    from airshield_core.spike_calibration import CALIBRATION_FILENAME, build_calibration
     from airshield_core.train import train_model
 
     frame = pd.read_csv(demo_csv)
     frame["time"] = pd.to_datetime(frame["time"], utc=True)
     out = tmp_path_factory.mktemp("backend-artifact")
-    train_model(frame, artifact_dir=out, num_rounds=50)
+    for horizon in HORIZONS:
+        train_model(frame, artifact_dir=out, num_rounds=50, horizon=horizon)
+    build_calibration(frame, horizons=HORIZONS).save(out / CALIBRATION_FILENAME)
     return out
 
 

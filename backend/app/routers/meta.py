@@ -55,3 +55,21 @@ def model_info(service: ForecastService = Depends(get_service)) -> ModelInfoResp
             inference_backend=service.settings.inference_backend,
             note=f"model information unavailable: {exc}",
         )
+
+
+@router.get("/horizons")
+def horizons(service: ForecastService = Depends(get_service)) -> dict:
+    """Report which forecast horizons have a trained model, and their metrics.
+
+    Only horizons with a real artifact are listed, so a client can never assume
+    coverage that does not exist.
+    """
+    cards = service.horizons_info()
+    return {
+        "horizons": cards,
+        "available": [card["horizon_hours"] for card in cards],
+        "note": (
+            "Each horizon is a separately trained XGBoost booster. A horizon that "
+            "is absent has no trained model and is not forecast."
+        ),
+    }
