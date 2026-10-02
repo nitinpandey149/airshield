@@ -142,7 +142,7 @@ export default function PollutionTimeline({ data }: { data: ForecastResponse }) 
       </div>
 
       <p className="mt-2 text-xs text-slate-500">
-        Shaded bands are US EPA PM2.5 categories. The dashed line is the model's
+        Shaded bands are India CPCB National AQI PM2.5 categories. The dashed line is the model's
         forecast, not a measurement.
       </p>
     </section>
