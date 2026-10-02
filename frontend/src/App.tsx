@@ -26,7 +26,7 @@ import type {
   ModelInfoResponse,
 } from './lib/types'
 
-const DEFAULT_SLUG = 'berlin'
+const DEFAULT_SLUG = 'delhi'
 
 export default function App() {
   const [locations, setLocations] = useState<LocationOut[]>([])

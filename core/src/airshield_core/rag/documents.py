@@ -39,6 +39,10 @@ class Document:
     category: str
     document_type: str
     text: str
+    jurisdiction: str = "Global"
+    """Which air-quality regime a document describes: ``India``, ``United
+    States`` or ``Global``. Used to prefer the standard the user is in, since
+    the two national AQI scales are not interchangeable."""
     publication_date: str | None = None
     licence: str = ""
     retrieved_at: str | None = None
@@ -56,6 +60,7 @@ class Document:
             "url": self.url,
             "category": self.category,
             "document_type": self.document_type,
+            "jurisdiction": self.jurisdiction,
             "publication_date": self.publication_date,
             "licence": self.licence,
             "retrieved_at": self.retrieved_at,
@@ -70,6 +75,7 @@ class Document:
             "url": self.url,
             "category": self.category,
             "document_type": self.document_type,
+            "jurisdiction": self.jurisdiction,
             "publication_date": self.publication_date,
             "licence": self.licence,
         }
@@ -160,6 +166,7 @@ def load_knowledge_base(path: str | pathlib.Path | None = None) -> KnowledgeBase
                 category=entry.get("category", "environmental_guidance"),
                 document_type=entry.get("document_type", "guidance"),
                 text=text_path.read_text(encoding="utf-8"),
+                jurisdiction=entry.get("jurisdiction", "Global"),
                 publication_date=entry.get("publication_date"),
                 licence=entry.get("licence", ""),
                 retrieved_at=retrieved_at,

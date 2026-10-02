@@ -151,16 +151,16 @@ def test_chat_handles_an_unknown_location(assistant_client) -> None:
 # --------------------------------------------------------- ML integration
 def test_context_values_match_the_forecast_and_plan_endpoints(assistant_client) -> None:
     """The assistant must explain the same numbers the dashboard shows."""
-    forecast = assistant_client.get("/api/forecast/berlin").json()
+    forecast = assistant_client.get("/api/forecast/delhi").json()
     plan = assistant_client.get(
-        "/api/plan/berlin?activity=running&duration_minutes=45"
+        "/api/plan/delhi?activity=running&duration_minutes=45"
     ).json()
 
     response = assistant_client.post(
         "/api/assistant/chat",
         json={
             "message": "Why are you recommending this time window?",
-            "location_slug": "berlin",
+            "location_slug": "delhi",
             "activity": "running",
             "duration_minutes": 45,
         },
@@ -191,13 +191,13 @@ def test_no_prediction_value_is_generated_by_the_assistant(assistant_client) -> 
         "/api/assistant/chat",
         json={
             "message": "Explain my exposure",
-            "location_slug": "berlin",
+            "location_slug": "delhi",
             "activity": "running",
             "duration_minutes": 45,
         },
     )
     used = response.json()["context_used"]
-    forecast = assistant_client.get("/api/forecast/berlin").json()
+    forecast = assistant_client.get("/api/forecast/delhi").json()
 
     # The predicted value is exactly the model's output, not a rounded or
     # re-derived copy.

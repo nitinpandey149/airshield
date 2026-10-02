@@ -104,7 +104,7 @@ def test_trained_horizon_predictor_round_trip(artifact_dir, demo_frame) -> None:
     train_model(frame, artifact_dir=out, num_rounds=40, horizon=3)
 
     predictor = LocalPredictor(out, horizon=3).load()
-    subset = frame[frame["location_name"] == "Berlin"].tail(80).reset_index(drop=True)
+    subset = frame[frame["location_name"] == "Delhi"].tail(80).reset_index(drop=True)
     features, base_time = latest_feature_row(subset, horizon=3)
     value = predictor.predict(features)
     assert np.isfinite(value) and value >= 0
@@ -136,7 +136,7 @@ def test_polyline_round_trip_known_value() -> None:
             prev_lat, prev_lon = lat_i, lon_i
         return "".join(output)
 
-    points = [(52.52, 13.405), (52.53, 13.41), (52.51, 13.42)]
+    points = [(28.6139, 77.209), (52.53, 13.41), (52.51, 13.42)]
     decoded = decode_polyline(encode(points), precision=5)
     assert len(decoded) == 3
     for (lat, lon), (elat, elon) in zip(decoded, points):

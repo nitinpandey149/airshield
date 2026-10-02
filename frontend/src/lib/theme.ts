@@ -56,7 +56,7 @@ export const SEVERITY_THEME: Record<Severity, SeverityTheme> = {
   },
 }
 
-/** US EPA AQI bands, used for the scale strip. */
+/** US EPA AQI bands, kept as a reference alongside the Indian scale. */
 export const AQI_BANDS = [
   { max: 50, label: 'Good', hex: '#22c55e' },
   { max: 100, label: 'Moderate', hex: '#eab308' },
@@ -64,6 +64,22 @@ export const AQI_BANDS = [
   { max: 200, label: 'Unhealthy', hex: '#ef4444' },
   { max: 300, label: 'Very unhealthy', hex: '#a855f7' },
   { max: 500, label: 'Hazardous', hex: '#7f1d1d' },
+] as const
+
+/**
+ * India CPCB National AQI bands with their PM2.5 thresholds (24h, µg/m³).
+ *
+ * Charts draw these as horizontal bands because the app forecasts PM2.5, and
+ * the Indian PM2.5 thresholds differ substantially from the US EPA ones - using
+ * the EPA lines on an Indian scale would mislabel the air.
+ */
+export const NATIONAL_AQI_BANDS = [
+  { max: 50, pm25: 30, label: 'Good', hex: '#22c55e' },
+  { max: 100, pm25: 60, label: 'Satisfactory', hex: '#eab308' },
+  { max: 200, pm25: 90, label: 'Moderate', hex: '#f97316' },
+  { max: 300, pm25: 120, label: 'Poor', hex: '#ef4444' },
+  { max: 400, pm25: 250, label: 'Very poor', hex: '#a855f7' },
+  { max: 500, pm25: 500, label: 'Severe', hex: '#7f1d1d' },
 ] as const
 
 export function severityTheme(severity: Severity): SeverityTheme {

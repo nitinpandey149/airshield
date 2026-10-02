@@ -22,7 +22,12 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from airshield_core.aqi import aqi_from_pm25, exposure_alert
+from airshield_core.aqi import (
+    NATIONAL_AQI_MISSING_POLLUTANTS,
+    aqi_from_pm25,
+    exposure_alert,
+    national_aqi_from_pollutants,
+)
 from airshield_core.config import Settings
 from airshield_core.events import detect_spike
 from airshield_core.features import HORIZONS, latest_feature_row
@@ -319,6 +324,45 @@ class ForecastService:
         )
         return event.to_dict()
 
+    # --------------------------------------------------------- national aqi
+    @staticmethod
+    def national_aqi(current: dict) -> dict:
+        """India CPCB National AQI from the current measured pollutants.
+
+        Computed across every pollutant the upstream source provides, so the
+        reported value reflects the worst of them rather than PM2.5 alone. The
+        pollutants the National AQI covers but Open-Meteo does not serve (CO,
+        SO2, NH3) are named in the response: without them the value can be lower
+        than the official National AQI, and saying so is the honest option.
+        """
+        result = national_aqi_from_pollutants(
+            pm2_5=current.get("pm2_5"),
+            pm10=current.get("pm10"),
+            nitrogen_dioxide=current.get("nitrogen_dioxide"),
+            ozone=current.get("ozone"),
+        )
+        return {
+            "aqi": result.aqi,
+            "category": result.category,
+            "dominant_pollutant": result.dominant_pollutant,
+            "band": result.band,
+            "who_ratio": result.who_ratio,
+            "sub_indices": [
+                {
+                    "pollutant": s.pollutant,
+                    "concentration": s.concentration,
+                    "sub_index": s.sub_index,
+                    "category": s.category,
+                    "band": s.band,
+                }
+                for s in result.sub_indices
+            ],
+            "health_guidance": result.health_guidance,
+            "missing_pollutants": list(NATIONAL_AQI_MISSING_POLLUTANTS),
+            "is_partial": result.is_partial,
+            "standard": "India CPCB National AQI",
+        }
+
     # --------------------------------------------------------------- output
     def build_forecast(self, location: Location) -> dict:
         """Produce the full response payload for one location."""
@@ -403,7 +447,9 @@ class ForecastService:
                 "category": primary["category"],
                 "band": primary["band"],
                 "who_ratio": primary["who_ratio"],
+                "standard": "US EPA AQI",
             },
+            "national_aqi": self.national_aqi(current),
             "alert": alert,
             "spike": spike,
             "history": history,

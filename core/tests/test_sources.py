@@ -13,7 +13,7 @@ from airshield_core.sources.registry import LOCATIONS, LocationNotFoundError, ge
 
 
 def test_registry_lookup() -> None:
-    assert get_location("berlin").name == "Berlin"
+    assert get_location("delhi").name == "Delhi"
     with pytest.raises(LocationNotFoundError, match="unknown location"):
         get_location("atlantis")
 
@@ -57,8 +57,8 @@ def test_demo_source_labels_itself_as_demo(demo_csv: Path) -> None:
 
 def test_demo_source_returns_observations(demo_csv: Path) -> None:
     source = DemoSource(demo_csv.parents[1])
-    observations = source.fetch(52.52, 13.405, "Berlin", window_hours=48)
-    assert observations.location_name == "Berlin"
+    observations = source.fetch(28.6139, 77.209, "Delhi", window_hours=48)
+    assert observations.location_name == "Delhi"
     assert len(observations.rows) == 48
     assert all(isinstance(row, Observation) for row in observations.rows)
     assert observations.source.mode == "demo"
@@ -67,7 +67,7 @@ def test_demo_source_returns_observations(demo_csv: Path) -> None:
 def test_demo_prediction_frame_clears_the_final_pm25(demo_csv: Path) -> None:
     """The forecast rows must mimic the live path: forecast weather, no measurement."""
     source = DemoSource(demo_csv.parents[1])
-    frame, base_time = source.fetch_frame_for_prediction("Berlin", window_hours=48)
+    frame, base_time = source.fetch_frame_for_prediction("Delhi", window_hours=48)
     forecast_rows = frame[frame["is_forecast"]]
     assert len(forecast_rows) == 1
     assert forecast_rows["pm2_5"].isna().all()
@@ -77,7 +77,7 @@ def test_demo_prediction_frame_clears_the_final_pm25(demo_csv: Path) -> None:
 
 def test_demo_multi_horizon_frame(demo_csv: Path) -> None:
     source = DemoSource(demo_csv.parents[1])
-    frame, base_time = source.fetch_frame_for_prediction("Berlin", window_hours=48, future_hours=6)
+    frame, base_time = source.fetch_frame_for_prediction("Delhi", window_hours=48, future_hours=6)
     assert frame["is_forecast"].sum() == 6
     assert frame[frame["is_forecast"]]["pm2_5"].isna().all()
 

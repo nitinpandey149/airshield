@@ -410,7 +410,7 @@ def test_context_renders_supplied_values_and_nothing_else(retriever: Retriever) 
 
 def test_context_reports_missing_values_as_unavailable(retriever: Retriever) -> None:
     """A gap must be visible, never filled in with a plausible number."""
-    context = ForecastContext(location="Berlin, Germany", observed_pm25=3.2)
+    context = ForecastContext(location="Delhi, India", observed_pm25=3.2)
     block = context.fact_block()
     assert "3.2" in block
     # No prediction was supplied, so no prediction section may appear.
@@ -421,7 +421,7 @@ def test_context_reports_missing_values_as_unavailable(retriever: Retriever) -> 
 def test_forecast_context_reads_existing_api_payload_shape() -> None:
     """The bridge consumes the same dicts /api/forecast and /api/plan return."""
     forecast = {
-        "location": {"label": "Berlin, Germany", "slug": "berlin"},
+        "location": {"label": "Delhi, India", "slug": "delhi"},
         "source": {"name": "Open-Meteo", "mode": "live"},
         "notice": None,
         "current": {
@@ -451,8 +451,8 @@ def test_forecast_context_reads_existing_api_payload_shape() -> None:
         },
     }
     plan = {
-        "location": "Berlin, Germany",
-        "location_slug": "berlin",
+        "location": "Delhi, India",
+        "location_slug": "delhi",
         "activity": "running",
         "activity_label": "Running",
         "duration_minutes": 45,

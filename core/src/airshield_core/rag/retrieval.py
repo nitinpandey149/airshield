@@ -37,6 +37,38 @@ _STOPWORDS = frozenset(
     """.split()
 )
 
+#: Weight of the lexical overlap term in the hybrid score. Semantic similarity
+#: dominates; the lexical term breaks ties in favour of a passage that actually
+#: contains the words asked about. Without it, a question naming a specific
+#: standard ("India AQI") can rank a generically-similar document ("US AQI")
+#: above the one that answers it.
+LEXICAL_WEIGHT = 0.25
+
+#: Extra score for a document whose jurisdiction matches the one the question is
+#: about. The Indian and US AQI scales share category names but not breakpoints,
+#: so answering an Indian question from a US document is a correctness bug, not
+#: just a ranking miss. This is a preference, not a filter: a jurisdiction match
+#: is boosted, never required.
+JURISDICTION_BONUS = 0.12
+
+#: Words that indicate the question is about the Indian regime.
+_INDIA_CUES = frozenset(
+    """india indian cpcb ncap delhi mumbai bengaluru bangalore chennai kolkata
+    hyderabad satisfactory severe grap""".split()
+)
+
+#: Minimum semantic similarity required of a *semantic* index. The hashing
+#: fallback embedder produces scores on a lower scale, so the caller's
+#: ``min_score`` is used as-is there; this floor only raises the bar when the
+#: index is genuinely semantic. 0.38 is set just above the top score an
+#: unrelated question reaches on this corpus ("capital of France" peaks at
+#: 0.27), so off-topic questions retrieve nothing.
+SEMANTIC_SCORE_FLOOR = 0.38
+
+#: Most chunks any single document may contribute to one result set. A long PDF
+#: otherwise floods the list and crowds out the other sources.
+MAX_CHUNKS_PER_DOCUMENT = 2
+
 
 @dataclass
 class RetrievedChunk:
@@ -54,6 +86,7 @@ class RetrievedChunk:
     publication_date: str | None
     licence: str
     ordinal: int
+    jurisdiction: str = "Global"
 
     def citation(self) -> dict:
         return {
@@ -63,6 +96,7 @@ class RetrievedChunk:
             "url": self.url,
             "category": self.category,
             "document_type": self.document_type,
+            "jurisdiction": self.jurisdiction,
             "publication_date": self.publication_date,
             "licence": self.licence,
         }
@@ -126,6 +160,28 @@ class Retriever:
         words = re.findall(r"[a-z0-9]+", query.lower())
         return any(word not in _STOPWORDS and len(word) > 1 for word in words)
 
+    @staticmethod
+    def _content_words(query: str) -> set[str]:
+        """Query words that carry retrieval signal."""
+        return {
+            word
+            for word in re.findall(r"[a-z0-9]+", query.lower())
+            if word not in _STOPWORDS and len(word) > 1
+        }
+
+    @staticmethod
+    def _lexical_overlap(words: set[str], text: str) -> float:
+        """Fraction of the query's content words present in ``text``."""
+        if not words:
+            return 0.0
+        present = set(re.findall(r"[a-z0-9]+", text.lower()))
+        return len(words & present) / len(words)
+
+    @classmethod
+    def _jurisdiction_of(cls, words: set[str]) -> str | None:
+        """The regime a question is about, or ``None`` when it does not say."""
+        return "India" if words & _INDIA_CUES else None
+
     def retrieve(
         self,
         query: str,
@@ -141,18 +197,56 @@ class Retriever:
             return []
 
         vector = self.embedder.encode([query])[0]
+        # Over-fetch, then re-rank: the vector search gives recall, the lexical
+        # and jurisdiction terms below give precision on domain words.
+        limit = top_k or self.top_k
+        candidates = max(limit * 4, 20)
         hits: list[SearchHit] = self.store.search(
-            vector,
-            top_k=top_k or self.top_k,
-            min_score=min_score if min_score is not None else self.min_score,
-            category=category,
+            vector, top_k=candidates, min_score=0.0, category=category
         )
+
+        # A semantic index scores on a different scale to the hashing fallback,
+        # so the honesty floor is raised only for the former. The caller's
+        # explicit min_score always applies.
+        floor = min_score if min_score is not None else self.min_score
+        if self.store.embedder_is_semantic:
+            floor = max(floor, SEMANTIC_SCORE_FLOOR)
+
+        words = self._content_words(query)
+        wanted_jurisdiction = self._jurisdiction_of(words)
+
+        ranked: list[tuple[float, SearchHit]] = []
+        for hit in hits:
+            if hit.score < floor:
+                continue
+            blended = hit.score + LEXICAL_WEIGHT * self._lexical_overlap(words, hit.text)
+            if (
+                wanted_jurisdiction is not None
+                and hit.metadata.get("jurisdiction") == wanted_jurisdiction
+            ):
+                blended += JURISDICTION_BONUS
+            ranked.append((blended, hit))
+        ranked.sort(key=lambda pair: -pair[0])
+
+        # Keep at most MAX_CHUNKS_PER_DOCUMENT passages from any one document so
+        # a long report cannot crowd out the rest of the corpus.
+        per_document: dict[str, int] = {}
+        selected: list[tuple[float, SearchHit]] = []
+        for blended, hit in ranked:
+            used = per_document.get(hit.doc_id, 0)
+            if used >= MAX_CHUNKS_PER_DOCUMENT:
+                continue
+            per_document[hit.doc_id] = used + 1
+            selected.append((blended, hit))
+            if len(selected) >= limit:
+                break
+
         return [
             RetrievedChunk(
                 chunk_id=hit.chunk_id,
                 doc_id=hit.doc_id,
                 text=hit.text,
-                score=hit.score,
+                score=blended,
                 title=hit.metadata.get("title", ""),
                 source=hit.metadata.get("source", ""),
                 url=hit.metadata.get("url", ""),
@@ -161,8 +255,9 @@ class Retriever:
                 publication_date=hit.metadata.get("publication_date"),
                 licence=hit.metadata.get("licence", ""),
                 ordinal=hit.ordinal,
+                jurisdiction=hit.metadata.get("jurisdiction", "Global"),
             )
-            for hit in hits
+            for blended, hit in selected
         ]
 
     def citations(self, chunks: list[RetrievedChunk]) -> list[dict]:

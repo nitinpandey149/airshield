@@ -9,7 +9,7 @@ import type { ForecastResponse } from '../lib/types'
  * medical safety - it reports relative exposure.
  */
 export default function NowCard({ data }: { data: ForecastResponse }) {
-  const { current, forecast, aqi, alert, spike } = data
+  const { current, forecast, aqi, alert, spike, national_aqi: national } = data
   const theme = severityTheme(alert.severity)
 
   const rising = forecast.predicted_pm25 > current.pm2_5 * 1.1
@@ -35,7 +35,7 @@ export default function NowCard({ data }: { data: ForecastResponse }) {
         </div>
         <span className={`chip ${theme.badge}`}>
           <span aria-hidden="true">●</span>
-          {current.category}
+          {national ? `National AQI ${national.category}` : current.category}
         </span>
       </div>
 
@@ -46,9 +46,17 @@ export default function NowCard({ data }: { data: ForecastResponse }) {
           <p className="text-xs text-slate-400">
             µg/m³ · measured {new Date(current.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
-            US EPA AQI {current.aqi} · {formatNumber(current.who_ratio, 2)}× WHO
-          </p>
+          {national ? (
+            <p className="mt-1 text-xs text-slate-500">
+              India National AQI {national.aqi} · {national.category}
+              {national.dominant_pollutant !== 'pm2_5' &&
+                ` (set by ${national.dominant_pollutant.toUpperCase()})`}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-slate-500">
+              {formatNumber(current.who_ratio, 2)}× WHO guideline
+            </p>
+          )}
         </div>
 
         <div className="rounded-xl border border-white/10 bg-ink-900/40 p-3">
@@ -59,7 +67,9 @@ export default function NowCard({ data }: { data: ForecastResponse }) {
           <p className="text-xs text-slate-400">
             µg/m³ · {forecast.horizon_hours}h forecast {trendArrow} {trend}
           </p>
-          <p className="mt-1 text-xs text-slate-500">AQI {aqi.aqi} · {aqi.category}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            National AQI {alert.aqi} · {alert.category}
+          </p>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-ink-900/40 p-3">
@@ -79,6 +89,9 @@ export default function NowCard({ data }: { data: ForecastResponse }) {
       </div>
 
       <p className="mt-4 text-sm text-slate-300">{alert.advice}</p>
+      <p className="mt-2 text-xs text-slate-500">
+        Alert basis: {alert.basis}. US EPA AQI {aqi.aqi} for the same value (different scale).
+      </p>
     </section>
   )
 }

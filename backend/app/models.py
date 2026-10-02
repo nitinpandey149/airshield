@@ -94,11 +94,42 @@ class SpikeOut(BaseModel):
     message: str = ""
 
 
+class SubIndexOut(BaseModel):
+    """One pollutant's contribution to the India CPCB National AQI."""
+
+    pollutant: str
+    concentration: float
+    sub_index: int
+    category: str
+    band: str
+
+
+class NationalAqiOut(BaseModel):
+    """India CPCB National AQI: the worst sub-index across available pollutants."""
+
+    aqi: int
+    category: str
+    dominant_pollutant: str
+    band: str
+    who_ratio: float
+    sub_indices: list[SubIndexOut] = Field(default_factory=list)
+    health_guidance: str
+    missing_pollutants: list[str] = Field(
+        default_factory=list,
+        description="Pollutants the National AQI covers that our source does not provide",
+    )
+    is_partial: bool = Field(
+        description="True when the value could be understated due to missing pollutants"
+    )
+    standard: str = "India CPCB National AQI"
+
+
 class AqiOut(BaseModel):
     aqi: int
     category: str
     band: str
     who_ratio: float
+    standard: str = "US EPA AQI"
 
 
 class AlertOut(BaseModel):
@@ -109,6 +140,8 @@ class AlertOut(BaseModel):
     category: str
     aqi: int
     horizon: str
+    basis: str = "India CPCB National AQI PM2.5 sub-index"
+    health_guidance: str = ""
 
 
 class HistoryPoint(BaseModel):
@@ -136,6 +169,10 @@ class ForecastResponse(BaseModel):
         description="Horizons requested but without a trained model, with the reason",
     )
     aqi: AqiOut
+    national_aqi: NationalAqiOut | None = Field(
+        default=None,
+        description="India CPCB National AQI across all pollutants the source provides",
+    )
     alert: AlertOut
     spike: SpikeOut | None = None
     history: list[HistoryPoint] = Field(

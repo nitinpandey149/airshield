@@ -10,8 +10,8 @@ const MODES = [
 ]
 
 const PRESETS: { label: string; origin: [number, number]; dest: [number, number] }[] = [
-  { label: 'Berlin centre → Kreuzberg', origin: [52.52, 13.405], dest: [52.486, 13.424] },
-  { label: 'Berlin centre → Prenzlauer Berg', origin: [52.52, 13.405], dest: [52.538, 13.424] },
+  { label: 'Delhi: Connaught Place → India Gate', origin: [28.6315, 77.2167], dest: [28.6129, 77.2295] },
+  { label: 'Delhi: Karol Bagh → Chandni Chowk', origin: [28.6519, 77.1909], dest: [28.6506, 77.2301] },
 ]
 
 function RouteCard({ route, best }: { route: RouteOut; best: boolean }) {

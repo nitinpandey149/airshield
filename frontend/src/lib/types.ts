@@ -37,6 +37,28 @@ export interface AqiOut {
   category: string
   band: string
   who_ratio: number
+  standard: string
+}
+
+export interface SubIndexOut {
+  pollutant: string
+  concentration: number
+  sub_index: number
+  category: string
+  band: string
+}
+
+export interface NationalAqiOut {
+  aqi: number
+  category: string
+  dominant_pollutant: string
+  band: string
+  who_ratio: number
+  sub_indices: SubIndexOut[]
+  health_guidance: string
+  missing_pollutants: string[]
+  is_partial: boolean
+  standard: string
 }
 
 export type Severity =
@@ -55,6 +77,8 @@ export interface AlertOut {
   category: string
   aqi: number
   horizon: string
+  basis: string
+  health_guidance: string
 }
 
 export interface HistoryPoint {
@@ -131,6 +155,7 @@ export interface ForecastResponse {
   forecasts: HorizonForecast[]
   unavailable_horizons: string[]
   aqi: AqiOut
+  national_aqi: NationalAqiOut | null
   alert: AlertOut
   spike: SpikeOut | null
   history: HistoryPoint[]

@@ -9,15 +9,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { AQI_BANDS, formatHour } from '../lib/theme'
+import { NATIONAL_AQI_BANDS, formatHour } from '../lib/theme'
 import type { ForecastResponse } from '../lib/types'
 
+// India CPCB PM2.5 thresholds (24h, ug/m3) for the six National AQI bands.
 const PM25_BANDS = [
-  { y: 12, hex: AQI_BANDS[0].hex },
-  { y: 35.4, hex: AQI_BANDS[1].hex },
-  { y: 55.4, hex: AQI_BANDS[2].hex },
-  { y: 150.4, hex: AQI_BANDS[3].hex },
-  { y: 250.4, hex: AQI_BANDS[4].hex },
+  { y: 30, hex: NATIONAL_AQI_BANDS[0].hex },
+  { y: 60, hex: NATIONAL_AQI_BANDS[1].hex },
+  { y: 90, hex: NATIONAL_AQI_BANDS[2].hex },
+  { y: 120, hex: NATIONAL_AQI_BANDS[3].hex },
+  { y: 250, hex: NATIONAL_AQI_BANDS[4].hex },
 ]
 
 /**

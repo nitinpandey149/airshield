@@ -1,12 +1,13 @@
 {
   "description": "AirShield Pulse knowledge base manifest. Every entry is a real, citable document from an official agency or peer-reviewed source. The ingestion pipeline fetches these URLs, extracts the text verbatim, and chunks it. Nothing in the corpus is generated.",
   "categories": [
-    "air_quality",
-    "pollutants",
-    "exposure",
-    "outdoor_activity",
     "AQI",
-    "environmental_guidance"
+    "air_quality",
+    "environmental_guidance",
+    "exposure",
+    "india",
+    "outdoor_activity",
+    "pollutants"
   ],
   "documents": [
     {
@@ -17,7 +18,8 @@
       "document_type": "guidance",
       "category": "pollutants",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "epa-pm-health-effects",
@@ -27,7 +29,8 @@
       "document_type": "guidance",
       "category": "exposure",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "epa-aqi-calculation",
@@ -37,7 +40,8 @@
       "document_type": "technical",
       "category": "AQI",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "airnow-aqi-basics",
@@ -47,7 +51,8 @@
       "document_type": "guidance",
       "category": "AQI",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "who-ambient-air-quality",
@@ -57,7 +62,8 @@
       "document_type": "guidance",
       "category": "air_quality",
       "publication_date": "2024-10-24",
-      "licence": "WHO - reproduced for non-commercial research with attribution"
+      "licence": "WHO - reproduced for non-commercial research with attribution",
+      "jurisdiction": "Global"
     },
     {
       "id": "who-physical-activity",
@@ -67,7 +73,8 @@
       "document_type": "guidance",
       "category": "outdoor_activity",
       "publication_date": "2024-06-26",
-      "licence": "WHO - reproduced for non-commercial research with attribution"
+      "licence": "WHO - reproduced for non-commercial research with attribution",
+      "jurisdiction": "Global"
     },
     {
       "id": "epa-ozone-basics",
@@ -77,7 +84,8 @@
       "document_type": "guidance",
       "category": "pollutants",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "epa-no2-basics",
@@ -87,7 +95,8 @@
       "document_type": "guidance",
       "category": "pollutants",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "epa-particulate-matter-size",
@@ -97,7 +106,8 @@
       "document_type": "technical",
       "category": "pollutants",
       "publication_date": "2014-05-01",
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "who-global-air-quality-guidelines-2021",
@@ -107,7 +117,8 @@
       "document_type": "guidance",
       "category": "environmental_guidance",
       "publication_date": "2021-09-22",
-      "licence": "WHO - reproduced for non-commercial research with attribution"
+      "licence": "WHO - reproduced for non-commercial research with attribution",
+      "jurisdiction": "Global"
     },
     {
       "id": "lung-association-particle-pollution",
@@ -117,7 +128,8 @@
       "document_type": "guidance",
       "category": "exposure",
       "publication_date": null,
-      "licence": "American Lung Association - reproduced for non-commercial research with attribution"
+      "licence": "American Lung Association - reproduced for non-commercial research with attribution",
+      "jurisdiction": "United States"
     },
     {
       "id": "who-air-quality-and-health",
@@ -127,7 +139,8 @@
       "document_type": "guidance",
       "category": "air_quality",
       "publication_date": null,
-      "licence": "WHO - reproduced for non-commercial research with attribution"
+      "licence": "WHO - reproduced for non-commercial research with attribution",
+      "jurisdiction": "Global"
     },
     {
       "id": "epa-iaq-vocs",
@@ -137,7 +150,8 @@
       "document_type": "guidance",
       "category": "pollutants",
       "publication_date": null,
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "epa-aqi-technical-assistance-document",
@@ -147,7 +161,8 @@
       "document_type": "technical",
       "category": "AQI",
       "publication_date": "2018-09-01",
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "airnow-particle-pollution-guide",
@@ -157,7 +172,8 @@
       "document_type": "guidance",
       "category": "outdoor_activity",
       "publication_date": "2023",
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "airnow-schools-activity-guidance",
@@ -167,7 +183,8 @@
       "document_type": "guidance",
       "category": "outdoor_activity",
       "publication_date": "2014",
-      "licence": "US EPA public domain / US Government work"
+      "licence": "US EPA public domain / US Government work",
+      "jurisdiction": "United States"
     },
     {
       "id": "lung-association-air-quality-and-exercise",
@@ -177,7 +194,74 @@
       "document_type": "guidance",
       "category": "outdoor_activity",
       "publication_date": "2025",
-      "licence": "American Lung Association - reproduced for non-commercial research"
+      "licence": "American Lung Association - reproduced for non-commercial research",
+      "jurisdiction": "United States"
+    },
+    {
+      "id": "cpcb-national-aqi-launch",
+      "title": "National Air Quality Index (AQI) launched by the Environment Minister",
+      "source": "Press Information Bureau, Government of India",
+      "url": "https://www.pib.gov.in/newsite/printrelease.aspx?relid=110654",
+      "document_type": "guidance",
+      "category": "AQI",
+      "publication_date": "2014-10-17",
+      "licence": "Government of India - Press Information Bureau, reproduced for non-commercial research",
+      "jurisdiction": "India"
+    },
+    {
+      "id": "cpcb-national-aqi-health-breakpoints",
+      "title": "India's Path to Blue Skies: air quality categories and health breakpoints",
+      "source": "Press Information Bureau, Government of India",
+      "url": "https://www.pib.gov.in/PressNoteDetails.aspx?id=159871&NoteId=159871&ModuleId=3",
+      "document_type": "guidance",
+      "category": "india",
+      "publication_date": "2025",
+      "licence": "Government of India - Press Information Bureau, reproduced for non-commercial research",
+      "jurisdiction": "India"
+    },
+    {
+      "id": "cpcb-ncap-report",
+      "title": "National Clean Air Programme (NCAP)",
+      "source": "Central Pollution Control Board, Government of India",
+      "url": "https://prana.cpcb.gov.in/ncapDashboard/download_public_portal_file/NCAP_Report.pdf",
+      "document_type": "technical",
+      "category": "india",
+      "publication_date": "2019",
+      "licence": "Government of India - Central Pollution Control Board, reproduced for non-commercial research",
+      "jurisdiction": "India"
+    },
+    {
+      "id": "cpcb-air-quality-data-programmes",
+      "title": "Ambient air quality monitoring and data programmes",
+      "source": "Central Pollution Control Board, Government of India",
+      "url": "https://cpcb.nic.in/air-quality-data/",
+      "document_type": "technical",
+      "category": "india",
+      "publication_date": null,
+      "licence": "Government of India - Central Pollution Control Board, reproduced for non-commercial research",
+      "jurisdiction": "India"
+    },
+    {
+      "id": "who-india-air-pollution",
+      "title": "Air pollution in India",
+      "source": "World Health Organization, India",
+      "url": "https://www.who.int/india/health-topics/air-pollution",
+      "document_type": "guidance",
+      "category": "india",
+      "publication_date": null,
+      "licence": "World Health Organization - reproduced for non-commercial research",
+      "jurisdiction": "India"
+    },
+    {
+      "id": "who-ambient-air-quality-health",
+      "title": "Ambient (outdoor) air pollution",
+      "source": "World Health Organization",
+      "url": "https://www.who.int/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health",
+      "document_type": "guidance",
+      "category": "air_quality",
+      "publication_date": "2024",
+      "licence": "World Health Organization - reproduced for non-commercial research",
+      "jurisdiction": "Global"
     }
   ]
 }

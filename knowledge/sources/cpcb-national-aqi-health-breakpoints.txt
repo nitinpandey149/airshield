@@ -1,0 +1,147 @@
+Energy & Environment
+
+India's Path to Blue Skies
+
+From Awareness to Action for Cleaner Air
+
+Posted On:
+07 SEP 2026 8:31PM
+
+Observed globally on 7 September, the International Day of Clean Air for Blue Skies highlights urgent action against air pollution. India’s multi-sectoral response includes the National Clean Air Programme (NCAP) across 130 cities. In FY 2025–26, 108 cities recorded lower PM10 levels than in 2017–18. Among them, 72 cities achieved reductions above 20%, while 26 recorded reductions above 40%. Strengthened monitoring, cleaner mobility, city-specific action and scientific interventions continue to advance India’s clean-air efforts.
+
+Towards Cleaner Air: A Global and National Commitment
+Clean air is fundamental to human health, environmental sustainability and economic well-being. As urbanisation and economic activity expand, addressing air pollution has become an important global priority. Recognising this need, the global community has placed clean air at the centre of environmental action.
+The International Day of Clean Air for Blue Skies is observed globally on 7 September. The United Nations General Assembly designated the day in 2019 to strengthen global action against air pollution. It stressed the importance of raising public awareness at all levels and promoting and facilitating actions to improve air quality. India observes this occasion as Swachh Vayu Diwas, linking the global campaign with national priorities.
+The Government of India is addressing this complex challenge through a comprehensive, multi-sectoral approach. This approach combines air-quality monitoring, emission control and city-specific action plans. The Central Government is supporting States and cities through targeted programmes and policy interventions. State Governments and district administrations play a critical role in implementing these measures on the ground. These combined efforts address pollution sources while strengthening institutional capacity for sustained air-quality management.
+
+| Understanding Air Pollution  Air pollution occurs when harmful substances accumulate in the atmosphere at levels that can affect human health and the environment. These pollutants may be present as gases, liquid droplets or solid particles. They can originate from both natural processes and human activities, including transport, industries, construction and burning. Among them, the key air pollutant is Particulate Matter (PM), comprising tiny solid or liquid particles suspended in the air. Based on their size, these particles are commonly classified as PM10 and PM2.5. PM10 refers to particles measuring 10 micrometres or less in diameter. PM2.5 refers to finer particles measuring 2.5 micrometres or less in diameter. For perspective, a human hair is about 100 micrometres wide, making PM2.5 extremely small, almost 40 fine particles could be placed on its width. Their small size allows finer particles to penetrate deeper into the respiratory system. Some particles can even enter the bloodstream, increasing their potential health impacts. This makes controlling particulate pollution an important priority for cleaner air and healthier communities.    |
+
+India in Action to Mitigate Air Pollution
+National Air Quality Monitoring Programme (NAMP)
+
+The Central Pollution Control Board initiated the National Ambient Air Quality Monitoring (NAAQM) programme. It was subsequently renamed NAMP.  Its objectives are to periodically evaluate air pollution, determine the status and trend of ambient air quality in the urban areas, estimate future changes, and ascertain violations of prescribed ambient air quality standards and health hazards.
+As on March 2026, the ambient air-quality monitoring network in the country currently comprises 1,646 stations across 603 cities in 28 States and 7 UTs, including manual stations and real-time stations. Manual stations collect and analyse samples periodically, while CAAQMS provide continuous, real-time air-quality data.
+The SAMEER mobile application and web portal provide near real-time AQI information for more than 292 cities, enhancing transparency and citizen awareness. Public Grievance Redressal Portals have also been established in all NCAP cities, enabling public participation in pollution control efforts.
+
+| Air Pollution Monitoring in India India uses specialised monitoring systems to track ambient air quality and pollution from industrial sources. The key systems include Continuous Ambient Air Quality Monitoring System (CAAQMS), Ambient Air Quality Monitoring System (AAQMS) and Online Continuous Emission Monitoring System (OCEMS). CAAQMS provides automated, real-time monitoring of ambient air quality. It tracks pollutants such as PM₂.₅, PM₁₀, Sulphur Dioxide (SO₂), Nitrogen Oxides (NOₓ), Carbon Monoxide (CO), Ozone (O₃) and Ammonia (NH₃). The system continuously records pollutant levels and supports timely assessment of air-quality conditions.  AAQMS is a broader monitoring framework covering both manual and automated monitoring systems. It is capable of detecting and quantifying critical air pollutants such as particulate matter (PM2.5 and PM10), gases like nitrogen dioxide (NO2), sulphur dioxide (SO2), carbon monoxide (CO), ozone (O3), volatile organic compounds (VOCs), and other pollutants as specified in the National Ambient Air Quality Standards (NAAQS), as well as specific meteorological parameters (temperature, humidity, wind direction and speed, among others). In manual monitoring, air samples are collected over 24 hours and analysed in laboratories. This provides detailed information on pollutant concentrations and supports long-term assessment of air quality. OCEMS are the Online Continuous Emission Monitoring Systems that monitors emissions directly at industrial sources. These systems are installed at industrial facilities such as 17 categories of highly polluting industries. In case of Delhi-NCR, medium and large-scale red category polluting industries, food and food processing industries, and metal units in addition to 17 categories of polluting industries were mandated to install OCEMS. They continuously transmit monitoring data to regulatory authorities for compliance assessment to CPCB server. This helps ensure that industrial emissions and effluent discharges remain within prescribed environmental standards.  |
+
+AQI is a simple tool for citizens to understand air quality. It classifies air quality into 6 categories, from Good to Severe, based on pollutant concentrations and their potential health impacts. AQI is calculated using eight pollutants: PM10, PM2.5, NO₂, SO₂, CO, O₃, NH₃ and Pb, with the worst-performing pollutant determining the overall AQI.
+
+| AQI Category | AQI |
+
+| Good | 0-50 |
+
+| Satisfactory | 51-100 |
+
+| Moderate | 101-200 |
+
+| Poor | 201-300 |
+
+| Very Poor | 301-400 |
+
+| Severe | 401-500 |
+
+National Clean Air Programme (NCAP)
+
+To address air pollution in urban areas in mission mode, NCAP was launched in 2019 by the Government in 130 cities across the country. It is a multi-sectoral initiative involving the coordinated efforts of the Central and State Governments, Urban Local Bodies (ULBs) and other stakeholders. NCAP emphasizes source specific mitigation measures through city, state, and national-level clean air action plans, and it is monitored by various committees constituted at Central, State and District level.
+
+| Key Achievement of NCAP  				Under NCAP, 24 States/UTs and 130 cities have prepared State and City-specific Clean Air Action Plans, targeting key pollution sources through short- and long-term sectoral measures. ₹16,423.55 crore was provided to 130 cities during FY 2019-20 to FY 2025-26 through air-quality performance-linked grants to support pollution mitigation measures. So far, cities have reported the utilization of ₹11,575.54 crore (70.5%) of the funds.  In FY 2025–26, 108 cities reduced annual PM10 concentrations compared with 2017–18, with 72 cities recording over 20% reduction, 26 over 40%, and 14 meeting NAAQS.  |
+
+Digital Tracking of Clean Air Progress
+
+“PRANA” – Portal for Regulation of Air-Pollution in Non-Attainment cities, is a portal for managing and monitoring the implementation of the National Clean Air Programme (NCAP). It supports tracking the physical as well as financial status of city air action plan implementation and disseminates information on air quality management efforts under NCAP to the public. Information related to various activities and their progress under NCAP by various stakeholders is available on this portal, which will help in future policy decisions. Click To Reach Portal
+Swachh Vayu Survekshan is an annual assessment of 130 cities under the NCAP. Launched in 2022-23, it is an initiative of the MoEFCC. The assessment covers measures addressing major pollution sources and implementation of City-specific Clean Air Action Plans. It promotes healthy competition, innovation and accelerated action among cities to improve air quality.
+
+| Champions of Swachh Vayu Survekshan 2025 The 2025 Survekshan recognised 11 best-performing cities across these three categories. Category 1 covers 47 cities with populations of 10 lakh or more. Category 2 covers 44 cities with populations between 3 and 10 lakh. Category 3 covers 40 cities with populations below 3 lakh. Indore ranked first in Category 1, Amravati topped Category 2, while Dewas led Category 3. |
+
+Champions of Swachh Vayu Survekshan 2026
+Ward level Swachh Vayu Sarvekshan is one step forward in ensuring the bottom-up approach and recognizing actions at the root level. Ward-level Swachh Vayu Sarvekshan carried out in more than 7,400 wards across the country.
+The 2026 Survekshan recognised 10 best-performing cities across these three categories. Lucknow ranked first in Category 1, Rourkela topped Category 2, while Kalinganagar led Category 3.
+10 wards awarded across three categories at National level; Category 1 Population > 30,000, Category 2 with population between 10,000-30,000, Category 3 with population < 10,000.
+Ward 70 Lucknow ranked first in Category 1, Ward 30 &36 Bhubneshwar topped Category 2, while Ward 13 Rourkela led Category 3. Further, 69 wards, 3 wards from each State/UT have also been awarded from 23 State/UTs.
+Sector-Wise Key Mitigation Measures Taken to Improve Air Quality
+- Introduction of BS VI compliant vehicles across the country since April, 2020.
+- Promotion of electric vehicles through PM E-Drive scheme of the Ministry of Heavy Industries and PM E-Bus Sewa of Ministry of Housing and Urban Affairs, Government of India.
+- Establishment of charging infrastructure for E-vehicles as per guidelines issued by Ministry of Power.
+- City action plans include traffic decongestion and junction improvement measures to address pollution from vehicular movement.
+- Ministry of Road Transport & Highways (MoRTH) has issued notifications on the establishment of Registered Vehicle Scrapping Facility (RVSFs) and Automated Testing System (ATS) to create an enabling framework for implementation of Vehicle Scrapping Policy.
+- Improving and Strengthening of Pollution Under Control (PUC) Certificate System programme across the country by MoRTH.
+- MoHUA        has         launched             the         "Program             for          Accelerated Renewal and lncentivization of Vehicle Assets for Reducing Transport Air-Pollution and Network       Emission (PARIVARTAN)", a time-bound fleet        modernization scheme aimed at reducing vehicular pollution in NCR by incentivizing the replacement of BS-IV and older trucks and buses with BS-VI, CNG or Electric Vehicles (EVs).
+- In Delhi-NCR, directions issued by CAQM to the Government of NCT of Delhi and State Governments of Haryana, Rajasthan and Uttar Pradesh for migration of public transport services, especially buses in NCR to cleaner modes. CAQM directed State Governments to augment infrastructure for public transport and allow only BS-VI/CNG/EV public transport buses to enter into Delhi, including tourist buses from 01.11.2026.
+- In Delhi-NCR, CAQM issued direction to the Government of NCT of Delhi and State Governments of Haryana, Rajasthan and Uttar Pradesh regarding fast-tracking of cleaner mobility in services provided by Motor Vehicle Aggregators, Delivery Service Providers and E- Commerce Entities.
+- In Delhi-NCR, mandatory induction of only electric three wheelers of L5 category (Passenger and Goods) in Delhi, followed by  High Volume Districts of NCR, namely Gurugram, Faridabad, Sonipat, Ghaziabad and Gautam Buddh Nagar and in all other districts of NCR in a graded manner.
+- MoEFCC has notified environmental standards for industrial sectors. Industries without specific standards must follow the applicable general standards under the Environment Protection Rules, 1986.
+- CPCB classified 419 industrial sectors and sub-sectors based on their pollution potential. These include 125 Red, 137 Orange, 94 Green, 54 White and 9 Blue categories.
+- To reduce industrial emissions in Delhi-NCR, CAQM notified a standard list of approved fuels for industries. All identified industries are required to install Online Continuous Emission Monitoring Systems and ensure connectivity with CPCB servers.
+- The CPCB directed 17 highly polluting industry categories to install Online Continuous Emission Monitoring Systems (OCEMS).
+- CAQM has strengthened and issued the revised particulate matter emission norms of 50 mg/Nm³ for polluting and large industries that will become applicable from 1 October 2026. Air Pollution Control Devices are accordingly being installed across identified industrial units.
+- State Pollution Control Boards have been advised for strict monitoring action in non-conforming areas with industrial establishments.
+- CEPI based categorization enables classification of industrial clusters as Critically Polluted Areas (CPAs) or Severely Polluted Areas (SPAs). Action plans are mandated for these zones to reduce pollution load and improve environmental quality.
+- In 2022, MoEFCC notified stricter emission standards (CPCB IV+) for power generators up to 800 kW running on Diesel, Gasoline or dual fuel mode.
+Road Dust and Construction
+
+- CPCB published guidelines for environmentally sound management of Construction and Demolition (C&D) waste, and guidelines for controlling dust from construction materials and C&D waste.
+- State Pollution Control Boards (SPCBs) and Pollution Control Committees (PCCs) are to deploy anti-smog guns and adequate dust-control measures at construction sites exceeding 20,000 sq. metres. CPCB also issued guidelines for using anti-smog guns at C&D projects.
+- Directions issued for setting up of a "Dust Control and Management Cell" by road owning/ maintaining/construction agencies for monitoring and effective implementation of dust control measures in the NCR. 70 Dust Control and Management Cells (DCMCs) have been set up across NCR, with regular reviews by the CAQM.
+- Online monitoring mechanism (through web portal) introduced for monitoring compliance of dust mitigation measures for construction sites above 500sqm plot area in Delhi NCR.
+- Redevelopment of roads to control road dust, deployment of adequate Mechanized Road Sweeping Machines (MRSMs) and strengthening of infrastructure for collection of Construction & Demolition waste in Delhi-NCR.
+
+| C&D Waste Construction and road dust is a major contributor to particulate pollution in Indian cities. It contributes around 40–50% of PM10 in most cities, according to the Source Apportionment (SA) studies conducted under the National Clean Air Programme (NCAP). Under City Clean Air Action Plans, cities prioritise road improvement and traffic decongestion. Measures also include junction improvements and greening of open spaces to reduce dust and improve urban air quality.  |
+
+- Enforcement of Solid Waste (2016, revised in 2026), Plastic Waste (2016, amended 2022), Hazardous Waste (2016), E-Waste (2022), Battery Waste (2022) and Biomedical Waste Management Rules (2016).
+- Market-Based Extended Producer Responsibility (EPR) mandates producers to manage post-consumer waste for plastic packaging, e-waste, batteries, tyres, and used oil. It promotes recycling, reduces landfill pressure, and curbs emissions from informal waste handling.
+- Ban on 12 Single-Use Plastics (SUP) items with low utility and high littering potential, like plastic cutlery, straws, and thermocol decorations, w.e.f.1st July,2022, to support plastic waste reduction and curb emissions from plastic waste burning.
+Crop Residue and Biomass Burning
+
+- CPCB supports paddy straw pelletisation and torrefaction plants through one-time financial assistance.
+- CAQM has directed 5-10% biomass co-firing in thermal power plants within 300 km of Delhi and in captive plants and Brick kilns in NCR. These measures promote alternative use of crop residue and reduce open burning.
+- CPCB provides financial support for establishment of paddy straw-based pelletisation and torrefaction plants in NCR States. An amount of ₹37.16 crore has been sanctioned for 34 plants, including 27 plants in Punjab and 7 plants in Haryana.
+- The Ministry of Agriculture and Farmers Welfare has provided Rs. 4,233.84 crore for crop residue management initiatives during 2018-19 to 2025-26. Over 3.53 lakh crop residue management machines distributed to farmers and more than 43,535 Custom Hiring Centres (CHCs) established in Haryana, Madhya Pradesh, Rajasthan, Uttar Pradesh, and the NCT of Delhi.
+- The combined efforts of multiple stakeholders have yielded encouraging results. With continued efforts, number of paddy stubble burning instances have reduced by 93% in Punjab and 91% in Haryana in 2025 with respect to 2021.
+Afforestation and Green Cover
+
+- The Green India Mission focuses on improving forest quality, ecological resilience and carbon sequestration. ₹1,019.26 crore has been released to States as of March 2026.
+- The Compensatory Afforestation Fund Management and Planning Authority (CAMPA) supports forest restoration and ecological conservation. More than 3.20 lakh hectares of compensatory afforestation were undertaken between FY 2020–21 and 2024–25.
+- Nagar Van Yojana launched in 2020, the scheme aims to develop 1,000 Nagar Vans and Vatikas by 2026–27. As of 31 March 2026, ₹557.62 crore has been released for developing 626 Nagar Vans/Vatikas.
+- Aravalli Green Wall initiative targets restoration of 6.31 million hectares across Rajasthan, Gujarat, Haryana and Delhi. It has established 435 nurseries with a combined capacity of 393.24 lakh seedlings. About 36,025 hectares were restored during 2025.
+- Ek Ped Maa Ke Naam, the campaign has emerged as a major public environmental movement. 262.4 crore saplings were planted by December 2025.
+Institutions Driving India’s Clean Air Goals
+The Government of India has established a multi-level institutional framework to address air pollution. It brings together national regulators, State agencies, urban local bodies and specialised institutions for regulation, monitoring, enforcement, scientific assessment and coordinated action.
+Central Pollution Control Board (CPCB)
+
+CPCB is a statutory organisation established under the Water (Prevention and Control of Pollution) Act, 1974, and is entrusted with powers and functions under the Air (Prevention and Control of Pollution) Act, 1981. It works to improve air quality and prevent, control and abate air pollution in the country, while also providing technical services to the MoEFCC.
+Commission for Air Quality Management (CAQM)
+
+The Government enacted the Commission for Air Quality Management in National Capital Region and Adjoining Areas Act, 2021 and constituted CAQM as a dedicated statutory body for coordinated management of air pollution across the NCR airshed. It also coordinates GRAP implementation across the NCR.
+
+Graded Response Action Plan (GRAP)
+The GRAP is an emergency response framework for managing worsening air quality in the National Capital Region. It brings multiple government agencies together to take graded and targeted measures based on the severity of pollution. The measures are triggered when Delhi’s AQI reaches or is expected to reach specified levels. GRAP uses air-quality data, weather forecasts and scientific assessments to enable timely action. Its four stages range from ‘Poor’ (AQI 201–300) to ‘Severe+’ (AQI above 450). Measures become progressively stricter as air quality deteriorates. They include controlling dust and emissions, regulating construction and industrial activities, and restricting certain vehicles. The Commission for Air Quality Management (CAQM) coordinates implementation across the NCR.
+
+State Pollution Control Boards (SPCBs)
+
+SPCBs of India are key regulatory bodies responsible for controlling environmental pollution. They are at the frontline of environmental regulation. Beyond their original responsibilities under the Water Act, Air Act, and Environment Protection Act, SPCBs today also monitor noise, manage hazardous and plastic waste, maintain inventories, set standards, and ensure compliance across an expanding industrial base.
+These institutions provide a coordinated framework for addressing air pollution through regulation, monitoring, enforcement and scientific assessment.
+To bring greater transparency, consistency and efficiency in environmental regulation for industries, Government has made amendment to Air Act 1981 and Water Act 1974 and has notified uniform consent guidelines “Control of Air Pollution (Grant, Refusal or Cancellation of Consent) Guidelines, 2025 on 29th January, 2025 and Water Pollution (Grant, Refusal or Cancellation of Consent) Guidelines, 2025 on 30th January”.
+A Unified Consent and Authorization Management System (UCAMS) has also been launched by CPCB to facilitate online processing of consent applications by all State Pollution Control Boards and Pollution Control Committees. This portal provides a solution for End-to-end online processing of grant, refusal, or cancellation of Consent and through this uniformity in fees, siting criteria, timelines will provide enhanced transparency and traceability.
+Way Forward
+India’s clean-air efforts will increasingly focus on sustained, source-specific and science-based interventions. Strengthening air-quality monitoring further will enable better identification of pollution sources and emerging hotspots. Greater use of real-time data, forecasting and scientific modelling can support timely and targeted interventions.
+States, cities and district administrations will remain central to translating national programmes into measurable improvements on the ground. Cleaner mobility, improved public transport and greater adoption of clean fuels can further reduce emissions from transport.
+Strengthening dust management, waste processing and industrial emission controls will address major urban pollution sources. Urban greening and ecosystem restoration can provide additional environmental benefits while improving resilience.
+Continued innovation can enable cleaner technologies and more efficient pollution control systems. Public awareness and citizen participation will remain essential for sustaining behavioural change. India’s continued focus on collaborative governance and measurable outcomes can accelerate progress towards cleaner air and healthier communities.
+References
+Ministry of Environment, Forest and Climate Change
+United Nations
+MY Bharat
+World Health Organization
+Ministry of Health and Family Welfare
+PRANA Portal
+Central Pollution Control Board
+PIB Backgrounder
+Others
+Click here for pdf file.
+****
+PIB Research
+(Explainer ID: 159871)
+आगंतुक पटल  : 5019
+
+Provide suggestions / comments
