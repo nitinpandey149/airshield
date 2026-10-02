@@ -1,0 +1,76 @@
+name: CI
+
+# Runs the same gate a developer runs locally (`make check`): the core, backend
+# and infra test suites, then the frontend type check. Nothing here needs
+# network access - the tests train on the bundled real dataset and build their
+# own retrieval index - so the job is deterministic.
+
+on:
+  push:
+    branches: [main, master, airshield-foundation]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          # The Makefile invokes .venv/bin/python directly, so create the venv
+          # here exactly as `make setup` would.
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -e ./core
+          .venv/bin/pip install -r backend/requirements.txt
+
+      - name: Core tests
+        run: make test-core
+
+      - name: Backend tests
+        run: make test-backend
+
+      - name: Infra tests
+        run: make test-infra
+
+  frontend:
+    name: Frontend type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check
+        run: make test-frontend
+
+      - name: Build
+        run: make frontend-build
