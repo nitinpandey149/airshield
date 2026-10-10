@@ -1,0 +1,34 @@
+# One-click deploy for AirShield Pulse on Render (https://render.com).
+#
+# Render builds the repo's Dockerfile, which trains the model from the bundled
+# dataset and builds the retrieval index at image-build time. The result is a
+# single origin serving the dashboard and /api, needing no runtime network.
+#
+# Usage: New -> Blueprint -> point at this repo. Render reads this file.
+#
+# The prediction is served by the LOCAL XGBoost artifact. This is not a
+# SageMaker deployment: /api/aws/status will report sagemaker_active: false
+# until real AWS credentials and an endpoint are configured.
+
+services:
+  - type: web
+    name: airshield-pulse
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # "auto" uses live Open-Meteo and falls back to the labelled bundled
+      # sample if upstream is unreachable. Use "live" to get an explicit 503
+      # instead of any fallback, or "demo" to serve the labelled sample only.
+      - key: AIRSHIELD_DATA_MODE
+        value: auto
+      # Local artifact inference. Set to "aws" plus SAGEMAKER_ENDPOINT_NAME to
+      # use a real SageMaker endpoint instead.
+      - key: AIRSHIELD_INFERENCE_BACKEND
+        value: local
+      - key: AIRSHIELD_SERVE_FRONTEND
+        value: "true"
+    # Free instances sleep after inactivity, so the first request after a lull
+    # is slow. Move to a paid instance type for an always-awake link.
