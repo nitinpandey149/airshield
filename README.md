@@ -27,24 +27,27 @@ LIVE ENVIRONMENTAL DATA  →  PM2.5 FORECAST  →  POLLUTION RISK ENGINE
 
 You pick a city. AirShield Pulse:
 
-1. Fetches **real hourly air-quality and weather measurements** from
-   [Open-Meteo](https://open-meteo.com/) (public API, no key required).
+1. Fetches **hourly PM2.5 and weather fields** from
+   [Open-Meteo](https://open-meteo.com/) (public API, no key required). The
+   air-quality series is CAMS-based modelled output at roughly 11 km resolution,
+   not a CPCB monitoring station.
 2. Runs a **separately trained XGBoost model per forecast horizon** (1h, 3h, 6h)
    to predict PM2.5. No single model is stretched to pretend it covers six hours.
-3. Converts the current hour and each horizon into **US EPA AQI** and a six-level
-   exposure alert.
+3. Converts the current hour and each horizon into the **India CPCB National AQI**
+   and a six-level exposure alert.
 4. Runs a **pollution event detector** that flags sharp and sustained rises, with
    a **model-calibrated confidence** and associated (not causal) signals.
 5. Scores **candidate time windows** for your activity and duration, over the
    whole window rather than the single lowest PM2.5 reading.
 6. Compares **real route alternatives** from an OpenStreetMap routing engine,
    sampling predicted PM2.5 along each path and ranking them by exposure.
-7. Shows all of it in a React dashboard that keeps measured and predicted data
+7. Shows all of it in a React dashboard that keeps observed and predicted data
    visually distinct and every number traceable.
 8. Answers **"why?"** through **Ask AirShield**, a retrieval-grounded assistant
    that explains AirShield's own outputs and retrieves environmental knowledge
-   from a curated corpus of WHO, US EPA and AirNow material — with citations, and
-   with an explicit refusal when the corpus cannot support an answer.
+   from a curated corpus of WHO, CPCB, US EPA and AirNow material — with
+   citations, and with an explicit refusal when the corpus cannot support an
+   answer.
 
 The model is served either from a local artifact or from a **real Amazon
 SageMaker AI endpoint** — the only AWS AI/ML service used in this project — and
@@ -58,7 +61,7 @@ This project is deliberately explicit about what is real and what is not.
 
 | Guarantee | How it is enforced |
 | --- | --- |
-| No invented measurements | Every reading comes from a live HTTP response, or from the bundled dataset. |
+| No invented observations | Every value comes from a live HTTP response, or from the bundled dataset. The upstream air-quality series is modelled (CAMS), and is labelled as such. |
 | No invented predictions | Predictions come from a trained booster, or a real SageMaker invocation. |
 | No invented accuracy | Metrics are computed on a held-out time slice and read back from the artifact. |
 | No invented confidence | Spike confidence is either an empirical historical frequency from the training data, or a transparent rule-based estimate. The basis is always stated. |
@@ -77,9 +80,9 @@ data.
 
 | `AIRSHIELD_DATA_MODE` | Upstream reachable | Upstream down |
 | --- | --- | --- |
-| `live` | Real current measurements. | **HTTP 503** with the upstream reason. Never falls back. |
+| `live` | Live upstream values (Open-Meteo; air quality is CAMS-model output). | **HTTP 503** with the upstream reason. Never falls back. |
 | `demo` | Bundled historical sample, labelled `DEMO`. | Same (no network used). |
-| `auto` *(default)* | Real current measurements. | Falls back to the bundled sample, and says so. |
+| `auto` *(default)* | Live upstream values. | Falls back to the bundled sample, and says so. |
 
 The bundled sample in `ml/data/demo/` is **real historical data** downloaded from
 Open-Meteo, not synthetic noise. It simply is not the current hour.
@@ -141,9 +144,9 @@ environmental-health material, and it is deliberately narrow:
   `OBSERVED` / `PREDICTED` / `RECOMMENDATION` block taken straight from
   `/api/forecast` and `/api/plan`.
 - **What it knows.** `knowledge/` holds source text fetched from the **World
-  Health Organization**, **US EPA**, **AirNow** and the **American Lung
-  Association**. Every passage carries its title, publisher, URL, category and
-  licence.
+  Health Organization**, **US EPA**, **AirNow**, the **American Lung
+  Association** and the **Central Pollution Control Board (India)**. Every
+  passage carries its title, publisher, URL, category and licence.
 - **What it refuses.** If retrieval finds nothing above the relevance floor, the
   assistant returns *"I don't have enough verified information…"* rather than the
   least-bad match. Airtight refusals matter more than fluent answers here.
@@ -180,7 +183,7 @@ make knowledge-offline  # rebuild the index from already-fetched sources
 ```bash
 curl -s localhost:8000/api/assistant/chat -H 'Content-Type: application/json' -d '{
   "message": "Why are you recommending this time window?",
-  "location_slug": "berlin", "activity": "running", "duration_minutes": 45
+  "location_slug": "delhi", "activity": "running", "duration_minutes": 45
 }'
 ```
 
@@ -237,7 +240,7 @@ airshield/
 │   │   ├── features.py       Leakage-safe feature engineering (HORIZONS)
 │   │   ├── train.py          Per-horizon XGBoost training + honest metrics
 │   │   ├── predict.py        Local artifact inference (log1p/expm1 contract)
-│   │   ├── aqi.py            US EPA AQI + exposure alert rules
+│   │   ├── aqi.py            India CPCB National AQI (+ US EPA reference) + alerts
 │   │   ├── exposure.py       Exposure engine (activity × duration × location)
 │   │   ├── events.py         Sharp / sustained pollution spike detection
 │   │   ├── windows.py        Safe-window optimizer over candidate windows
@@ -275,7 +278,7 @@ airshield/
 
 ```
 Browser
-  │  GET /api/forecast/berlin
+  │  GET /api/forecast/delhi
   ▼
 FastAPI router ──► ForecastService
                      ├─ 1. Source (live Open-Meteo │ demo) → frame + provenance
@@ -315,8 +318,14 @@ make frontend-dev   # terminal 2: dashboard on :5173
 Open <http://localhost:5173>. To work fully offline:
 
 ```bash
-make train-offline  # trains on the bundled real dataset, no network needed
+make train-offline     # trains on the bundled real dataset, no network needed
+make knowledge-offline # builds the assistant's retrieval index from the committed corpus
 ```
+
+`make knowledge-offline` is not required for forecasting, but **Ask AirShield**
+reports a degraded state until the index exists — the index is a build output
+(`knowledge/index/` is gitignored), so a fresh clone must build it once. Docker
+and CI both do this automatically.
 
 ### Run the built web app
 
@@ -374,7 +383,7 @@ make docker-run      # serves the API and the built dashboard on :8000
 Interactive docs at <http://localhost:8000/docs>.
 
 <details>
-<summary><code>GET /api/plan/berlin?activity=running&amp;duration_minutes=45</code> — example shape</summary>
+<summary><code>GET /api/plan/delhi?activity=running&amp;duration_minutes=45</code> — example shape</summary>
 
 ```json
 {
@@ -563,11 +572,13 @@ committed**; `.env` is gitignored and `.env.example` documents every key.
 ## Data attribution
 
 Air quality and weather data: [Open-Meteo](https://open-meteo.com/), licensed
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Routing:
-OpenStreetMap contributors via Valhalla / OSRM. AQI breakpoints follow the US
-EPA's [AirNow technical assistance document](https://www.airnow.gov/aqi/aqi-calculator/).
-WHO guideline comparison uses the 2021 Global Air Quality Guidelines (24-hour
-PM2.5 guideline: 15 µg/m³).
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The air-quality fields
+are Open-Meteo's CAMS-based **modelled** output at roughly 11 km resolution, not a
+CPCB monitoring-station reading. Routing: OpenStreetMap contributors via Valhalla
+/ OSRM (ODbL). The headline AQI is India's **CPCB National AQI**; the US EPA
+[AirNow technical assistance document](https://www.airnow.gov/aqi/aqi-calculator/)
+is retained as a named reference scale. WHO guideline comparison uses the 2021
+Global Air Quality Guidelines (24-hour PM2.5 guideline: 15 µg/m³).
 
 ## Disclaimer
 
